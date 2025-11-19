@@ -2,7 +2,10 @@
     import { Awareness } from "y-protocols/awareness";
     import Users from "lucide-svelte/icons/users";
 
-    const { awareness } = $props<{ awareness: Awareness | null }>();
+    const { awareness, mode = "local" } = $props<{
+        awareness: Awareness | null;
+        mode?: "local" | "nostr";
+    }>();
 
     // Derive active users from awareness
     const users = $derived.by(() => {
@@ -28,7 +31,13 @@
     <div class="presence-list">
         <div class="presence-header">
             <Users size={16} />
-            <span class="presence-count">{users.length} online</span>
+            <span class="presence-count">
+                {#if mode === "local"}
+                    Local
+                {:else}
+                    {users.length} online
+                {/if}
+            </span>
         </div>
         <div class="presence-avatars">
             {#each users as user (user.id)}

@@ -41,6 +41,7 @@
   let awareness: Awareness | null = $state(null);
   let provider: any = null;
   let error: string | null = $state(null);
+  let loading: boolean = $state(false);
 
   // Call callback when awareness changes
   $effect(() => {
@@ -54,6 +55,8 @@
 
     async function init() {
       try {
+        loading = true;
+        error = null;
         let newYdoc: Y.Doc;
         let newAwareness: Awareness;
         let newProvider: any = null;
@@ -87,6 +90,10 @@
       } catch (e) {
         console.error("Failed to initialize editor:", e);
         error = e instanceof Error ? e.message : String(e);
+      } finally {
+        if (!cancelled) {
+          loading = false;
+        }
       }
     }
 
@@ -103,6 +110,7 @@
       ydoc = null;
       awareness = null;
       provider = null;
+      loading = false;
     };
   });
 
@@ -146,6 +154,12 @@
 </script>
 
 <div class="editor">
+  {#if loading}
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Verbinde mit Nostr...</p>
+    </div>
+  {/if}
   {#if error}
     <div class="error-alert">
       <p><strong>Fehler:</strong> {error}</p>
@@ -153,6 +167,9 @@
         Bitte stelle sicher, dass du eine Nostr-Extension (z. B. Alby, nos2x)
         installiert hast, wenn du den Nostr-Modus nutzt.
       </p>
+      <button class="retry-button" onclick={() => window.location.reload()}>
+        Neu laden
+      </button>
     </div>
   {/if}
   <div class="toolbar">
@@ -274,6 +291,7 @@
 
 <style>
   .editor {
+    position: relative;
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     background-color: white;
@@ -340,5 +358,51 @@
   .text-sm {
     font-size: 0.875rem;
     margin-top: 0.25rem;
+  }
+
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: 0.5rem;
+  }
+
+  .spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 0.5rem;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .retry-button {
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background-color: #991b1b;
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+
+  .retry-button:hover {
+    background-color: #7f1d1d;
   }
 </style>

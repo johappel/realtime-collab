@@ -30,7 +30,7 @@
   <header class="header">
     <h1>Editor: {documentId}</h1>
     <div class="header-actions">
-      <PresenceList {awareness} />
+      <PresenceList {awareness} {mode} />
       <div class="controls">
         <label class:active={mode === "local"}>
           <input type="radio" bind:group={mode} value="local" /> Local
