@@ -29,13 +29,13 @@ Dieses Dokument beschreibt, wie Yjs (CRDT) mit Nostr-Relays als Transport intera
 ### 3.1 Event-Formate
 
 - **Update-Events**
-  - `kind: 31337`
+  - `kind: 9337` (Regular Event, damit History erhalten bleibt)
   - `content`: Base64-kodierte Yjs-Update (`Uint8Array`).
   - `tags`:
     - `["d", documentId]`
 
 - **Snapshot-Events (optional)**
-  - `kind: 31338`
+  - `kind: 31338` (Replaceable Event)
   - `content`: Base64-kodierter vollständiger Yjs-State (`encodeStateAsUpdate`).
   - `tags`:
     - `["d", documentId]`
@@ -69,6 +69,7 @@ class NostrYDocProvider {
     relays?: string[];
     myPubkey?: string;
     signAndPublish?: (evt: EventTemplate) => Promise<void>;
+    debug?: boolean;
   }) { /* … */ }
 }
 ```
@@ -78,11 +79,13 @@ class NostrYDocProvider {
 - `relays`: Liste von Relay-URLs (optional, Default im Code hinterlegt).
 - `myPubkey`: öffentlicher Schlüssel des aktuellen Users (optional; nur für Event-Filtern nötig).
 - `signAndPublish`: Funktion, welche ein `EventTemplate` signiert und an die Relays schickt (z. B. via NIP‑07). Wenn nicht gesetzt, werden lokale Updates zwar empfangen, aber nicht über Nostr publiziert (reiner Lese-Modus).
+- `debug`: Optionaler Boolean, um detailliertes Logging (Raw WebSocket Events) zu aktivieren.
 
 ### 4.3 Verhalten
 
-- **Subscribe:**
-  - `pool.subscribeMany(relays, [{ kinds: [31337], '#d': [documentId] }], { onevent })`.
+- **Subscribe (NativeRelay):**
+  - Um Browser-Kompatibilitätsprobleme mit `nostr-tools` (SimplePool) zu vermeiden, wird eine interne `NativeRelay`-Klasse verwendet, die direkt auf `WebSocket` aufsetzt.
+  - Sendet `["REQ", subId, { kinds: [9337], '#d': [documentId] }]`.
   - Auf jedem Event:
     - Content als Base64 → `Uint8Array`.
     - `Y.applyUpdate(ydoc, update, 'remote')`.
@@ -92,7 +95,7 @@ class NostrYDocProvider {
   - `ydoc.on('update', (update, origin) => { … })` registrieren.
   - Nur Updates mit `origin !== 'remote'` senden, um Schleifen zu vermeiden.
   - Update → Base64 → `EventTemplate` mit Feldern:
-    - `kind: 31337`
+    - `kind: 9337`
     - `content: <base64>`
     - `tags: [['d', documentId]]`
     - `created_at: Math.floor(Date.now() / 1000)`

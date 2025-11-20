@@ -15,7 +15,9 @@ declare global {
  */
 export async function signAndPublishNip07(
     eventTemplate: EventTemplate,
-    relays: string[] = ['wss://relay.damus.io']
+    relays: string[] = [
+        'ws://localhost:7000',
+    ]
 ): Promise<void> {
     if (!window.nostr) {
         throw new Error('NIP-07 Nostr extension not found');
@@ -29,20 +31,29 @@ export async function signAndPublishNip07(
 
     const signedEvent = await window.nostr.signEvent(unsignedEvent);
 
-    // 2. Veröffentlichen (einfache Implementierung ohne Pool-Reuse für diesen Helper)
-    // In einer echten App würde man den Pool wiederverwenden, aber hier nutzen wir
-    // den Pool aus dem NostrYDocProvider eigentlich gar nicht für das PUBLISHEN,
-    // sondern der Provider ruft diese Funktion auf.
-    // Moment, der Provider hat einen Pool. Aber hier sollen wir nur "signAndPublish" implementieren.
-    // Besser: Wir geben das signierte Event zurück oder nutzen einen einfachen Pool.
-
-    // Da wir hier "fire and forget" machen wollen:
+    // 2. Veröffentlichen
     const { SimplePool } = await import('nostr-tools');
     const pool = new SimplePool();
 
     try {
+        // Wir warten darauf, dass mindestens ein Relay das Event akzeptiert.
         await Promise.any(pool.publish(relays, signedEvent));
+    } catch (error) {
+        // Wenn alle fehlschlagen, loggen wir Details, aber werfen den Fehler weiter,
+        // damit der Aufrufer Bescheid weiß.
+        console.error('All relays failed to publish event:', error);
+        if (error instanceof AggregateError) {
+            error.errors.forEach((e, i) => {
+                console.error(`Relay ${relays[i]} failed:`, e);
+                if (relays[i].includes('localhost')) {
+                    console.warn('Hint: Make sure you have a local Nostr relay running on port 7000 (e.g. nostr-rs-relay or nak).');
+                }
+            });
+        }
+        throw error;
     } finally {
+        // Pool schließen, da wir ihn hier nur einmalig nutzen
+        // (In einer optimierten App würde man den Pool global halten)
         pool.close(relays);
     }
 }

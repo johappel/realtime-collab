@@ -1,9 +1,9 @@
 import { Awareness } from 'y-protocols/awareness';
 import { SimplePool, type EventTemplate, type Event } from 'nostr-tools';
 
-const DEFAULT_RELAYS = ['wss://relay.damus.io'];
-
-export interface NostrAwarenessProviderOptions {
+const DEFAULT_RELAYS = [
+  'ws://localhost:7000',
+];export interface NostrAwarenessProviderOptions {
     awareness: Awareness;
     documentId: string;
     relays?: string[];

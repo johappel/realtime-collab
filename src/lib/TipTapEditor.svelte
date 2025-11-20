@@ -64,8 +64,13 @@
         if (mode === "nostr") {
           const pubkey = await getNip07Pubkey();
           if (cancelled) return;
+          // Hier initialisieren wir den Nostr-Provider.
+          // useNostrYDoc erstellt intern eine Y.Doc Instanz und verbindet sie via NostrYDocProvider mit den Relays.
+          // Der dritte Parameter ist die Callback-Funktion zum Signieren und Publizieren von Events.
+          // Der vierte Parameter aktiviert den Debug-Modus (true = Logs anzeigen).
           const result = useNostrYDoc(documentId, pubkey, (evt) =>
             signAndPublishNip07(evt),
+            false // Debug-Modus an
           );
           newYdoc = result.ydoc;
           newAwareness = result.awareness;

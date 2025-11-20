@@ -69,9 +69,9 @@ Ein **Google‑Docs‑ähnlicher, Markdown/Rich‑Text‑fähiger Realtime-Edito
 - Pro Dokument ein logischer Kanal:
   - Nostr-Tag: `["d", <documentId>]`
   - Custom Nostr-Kinds, z. B.:
-    - `31337` – CRDT/Yjs-Updates (Binär als Base64 im `content`)
-    - `31338` – optionale Snapshots
-    - `31339` – Awareness/Presence
+    - `9337` – CRDT/Yjs-Updates (Binär als Base64 im `content`, Regular Event)
+    - `31338` – optionale Snapshots (Replaceable Event)
+    - `31339` – Awareness/Presence (Replaceable Event)
 
 ---
 
@@ -86,7 +86,7 @@ Die Implementierung erfolgt in drei Ausbaustufen (siehe `docs/ROADMAP.md` im Det
 
 2. **MVP 2 – Nostr als Transport für Yjs-Updates:**
    - Implementierung `NostrYDocProvider`
-   - Yjs-Updates → Base64 → `kind: 31337` Events
+   - Yjs-Updates → Base64 → `kind: 9337` Events
    - Events mit `tag ["d", documentId]` kennzeichnen
    - Svelte-Komponenten nutzen `useNostrYDoc`-Hook
 

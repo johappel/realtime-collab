@@ -46,12 +46,13 @@ Konkrete Versionen werden in `package.json` festgelegt.
 - Optional (ab MVP 2):
   - `myPubkey: string`
   - `signAndPublish: (evt: EventTemplate) => Promise<void>`
+  - `debug: boolean` (optional, default: false)
 
 **Interne Logik:**
 
 - Abhängig vom Modus:
   - MVP 1: ruft `useLocalYDoc(documentId)`.
-  - MVP 2+: ruft `useNostrYDoc(documentId, myPubkey, signAndPublish)`.
+  - MVP 2+: ruft `useNostrYDoc(documentId, myPubkey, signAndPublish, debug)`.
 - Erzeugt TipTap-`Editor` mit Extensions:
   - `StarterKit.configure({ history: false })`
   - `Collaboration.configure({ document: yXmlFragment })`

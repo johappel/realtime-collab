@@ -1,0 +1,25 @@
+# Server settings
+[server]
+host = "0.0.0.0"
+port = 8080
+
+# Relay info
+[info]
+name = "Dev Nostr Relay"
+description = "A minimal public Nostr relay"
+pubkey = ""
+contact = "you@example.com"
+
+# Database
+[database]
+data_directory = "/usr/src/app/db"
+
+# Logging
+[logging]
+level = "info"
+
+# Limits
+[limits]
+# Explicitly allow these event kinds
+event_kind_allowlist = [0, 1, 5, 9337, 31337, 31339, 30301, 30302, 30142, 20001]
+

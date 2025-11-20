@@ -22,7 +22,9 @@
 - `useNostrYDoc` Hook mit NIP-07 Integration
 - Mode-Switcher (Local/Nostr) in der UI
 - `nostrUtils.ts` mit `signAndPublishNip07` und `getNip07Pubkey`
-- Bidirektionale Synchronisation über Nostr-Relays (kind: 31337)
+- Bidirektionale Synchronisation über Nostr-Relays (kind: 9337 - Regular Event für History)
+- **Neu:** Custom `NativeRelay` Implementierung für robuste Browser-Verbindungen
+- **Neu:** Debug-Modus für detailliertes Logging
 
 ### ✅ MVP 3: Presence & Cursors
 - `NostrAwarenessProvider` implementiert (kind: 31339)
@@ -36,7 +38,7 @@
 ### Core Libraries
 - ✅ `src/lib/useLocalYDoc.ts` - Lokales Yjs-Setup mit Awareness
 - ✅ `src/lib/useNostrYDoc.ts` - Nostr-basiertes Yjs-Setup
-- ✅ `src/lib/NostrYDocProvider.ts` - Yjs-Dokument-Synchronisation via Nostr
+- ✅ `src/lib/NostrYDocProvider.ts` - Yjs-Dokument-Synchronisation via Nostr (mit NativeRelay)
 - ✅ `src/lib/NostrAwarenessProvider.ts` - Presence-Synchronisation via Nostr
 - ✅ `src/lib/nostrUtils.ts` - NIP-07 Integration
 
@@ -67,14 +69,16 @@
 ## Technische Details
 
 ### Nostr Event-Arten
-- **Kind 31337**: Yjs-Dokument-Updates (Base64-encoded)
+- **Kind 9337**: Yjs-Dokument-Updates (Base64-encoded)
   - Tag: `["d", documentId]`
+  - Regular Event (nicht Replaceable), um History zu bewahren
 - **Kind 31339**: Awareness/Presence-Updates (JSON)
   - Tag: `["d", documentId]`
   - Content: `{ clientId, state, ts }`
+  - Replaceable Event
 
 ### Relay-Konfiguration
-Standard-Relay: `wss://relay.damus.io`
+Standard-Relay (Dev): `ws://localhost:7000`
 
 Kann in den Providern überschrieben werden:
 ```typescript
@@ -95,16 +99,15 @@ new NostrYDocProvider({
    - Nutzer müssen eine NIP-07 Extension installieren (z.B. Alby, nos2x)
    - Ohne Extension funktioniert nur der Local-Modus
 
-3. **Keine Persistenz**:
-   - Yjs-Dokumente werden nicht persistent gespeichert
-   - Bei Server-Neustart gehen alle Daten verloren
-   - Für Produktion: Snapshot-Mechanismus implementieren
+3. **Lokales Relay für Entwicklung**:
+   - Aktuell ist `ws://localhost:7000` als Default konfiguriert.
+   - Für Production muss dies auf öffentliche Relays geändert werden.
 
 ## Projektmetriken
 
 - **Implementierte MVPs**: 3/3
 - **Core Files**: 11
-- **Lines of Code**: ~1500
+- **Lines of Code**: ~1600
 - **Dependencies**: 12 production, 18 dev
 
 ## Dokumentation
@@ -119,4 +122,4 @@ Alle Spezifikationen sind aktualisiert:
 
 ## Fazit
 
-Das Projekt hat alle geplanten MVPs erfolgreich abgeschlossen. Die Kernfunktionalität eines dezentralen, kollaborativen Realtime-Editors ist vollständig implementiert und funktionsfähig. Der Editor unterstützt sowohl lokale als auch Nostr-basierte Synchronisation mit Live-Cursors und Presence-Informationen.
+Das Projekt hat alle geplanten MVPs erfolgreich abgeschlossen. Der Editor nutzt nun `kind: 9337` für persistente Updates und eine robuste `NativeRelay`-Implementierung, um Browser-Kompatibilitätsprobleme zu umgehen. Die Entwicklungsumgebung ist auf ein lokales Relay (`ws://localhost:7000`) optimiert.

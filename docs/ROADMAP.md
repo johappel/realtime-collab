@@ -54,16 +54,16 @@ npm install nostr-tools y-protocols
 
 - [x] `YJS_NOSTR_SPEC.md` (dieses Dokument) erstellen.
 - [x] `NostrYDocProvider` Grundimplementierung anlegen:
-  - [x] Subscribe: Filter `{ kinds: [31337], '#d': [documentId] }`.
-  - [x] Publish: `ydoc.on('update')` → Base64 → `kind: 31337`.
+  - [x] Subscribe: Filter `{ kinds: [9337], '#d': [documentId] }`.
+  - [x] Publish: `ydoc.on('update')` → Base64 → `kind: 9337`.
 - [x] `useNostrYDoc(documentId, myPubkey, signAndPublish)` implementieren.
 - [x] `TipTapEditor.svelte` so erweitern, dass zwischen lokalem und Nostr-Modus gewechselt werden kann.
 - [x] Eine einfache `signAndPublish`-Implementierung für Browser mit NIP‑07 vorbereiten (Konzept + Beispiel).
 
 **Akzeptanzkriterien:**
 
-- Zwei Browserfenster, gleiche `documentId`, gleicher Relay – Änderungen werden nahezu in Echtzeit synchronisiert.
-- Keine sichtbaren Merge-Konflikte (Yjs erledigt das).
+- [x] Zwei Browserfenster, gleiche `documentId`, gleicher Relay – Änderungen werden nahezu in Echtzeit synchronisiert.
+- [x] Keine sichtbaren Merge-Konflikte (Yjs erledigt das).
 
 ---
 
@@ -81,13 +81,13 @@ npm install nostr-tools y-protocols
 - [x] `TipTapEditor.svelte` um `CollaborationCursor`-Extension erweitern:
   - [x] `provider: { awareness }` setzen.
   - [x] `user`-Objekt mit Name + Farbe übergeben.
-- [ ] UI-Elemente für Presence-Liste (z. B. Avatare/Initialen) hinzufügen.
+- [x] UI-Elemente für Presence-Liste (z. B. Avatare/Initialen) hinzufügen.
 
 **Akzeptanzkriterien:**
 
-- Mindestens zwei Nutzer gleichzeitig im Dokument:
-  - gegenseitige Cursors/Selections sichtbar.
-  - Presence-Liste zeigt aktive Nutzer.
+- [x] Mindestens zwei Nutzer gleichzeitig im Dokument:
+  - [x] gegenseitige Cursors/Selections sichtbar.
+  - [x] Presence-Liste zeigt aktive Nutzer.
 
 ---
 

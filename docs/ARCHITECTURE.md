@@ -30,9 +30,9 @@ Dieses Dokument beschreibt die Zielarchitektur des kollaborativen Editors.
     - Snapshots (optional)
     - Awareness/Presence-Events (Cursors & „wer tippt?“)
 
-- **nostr-tools**
-  - Erstellung, Signierung und Versand von Nostr-Events
-  - `SimplePool` für Relay-Konnektivität
+- **nostr-tools & NativeRelay**
+  - Erstellung, Signierung und Versand von Nostr-Events via `nostr-tools`.
+  - **NativeRelay**: Eigene Implementierung für robuste WebSocket-Verbindungen (ersetzt `SimplePool` für Subscriptions), um Browser-Kompatibilitätsprobleme zu umgehen.
 
 ---
 
@@ -50,6 +50,8 @@ Dieses Dokument beschreibt die Zielarchitektur des kollaborativen Editors.
 
 3. **Transport-Schicht (Nostr Provider)**
    - `NostrYDocProvider` synchronisiert Yjs-Updates mit Nostr.
+     - Nutzt intern `NativeRelay` für zuverlässigen Event-Empfang.
+     - Unterstützt Debug-Modus für detailliertes Logging.
    - `NostrAwarenessProvider` synchronisiert Awareness-Status mit Nostr.
    - Beide Provider sind von der UI entkoppelt, werden von Hooks instanziiert.
 
@@ -70,18 +72,18 @@ Dieses Dokument beschreibt die Zielarchitektur des kollaborativen Editors.
 ### 3.2 Event-Kategorien
 
 - **CRDT/Yjs-Updates**
-  - `kind: 31337`
+  - `kind: 9337` (Regular Event)
   - `content`: Base64-kodiertes Yjs-Update (`Uint8Array`).
   - Tags:
     - `["d", documentId]`
 - **Snapshots (optional)**
-  - `kind: 31338`
+  - `kind: 31338` (Replaceable Event)
   - `content`: Base64-kodierter vollständiger Yjs-State (`encodeStateAsUpdate`).
   - Tags:
     - `["d", documentId]`
 
 - **Awareness/Presence**
-  - `kind: 31339`
+  - `kind: 31339` (Replaceable Event)
   - `content`: kompaktes JSON mit Präsenzinformationen (Cursor-Position, Name, Farbe etc.)
   - Tags:
     - `["d", documentId]`
