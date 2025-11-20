@@ -110,6 +110,15 @@ export async function fetchNostrProfile(pubkey: string, relays: string[] = ['ws:
     });
 }
 
+export function getRandomColor(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00ffffff).toString(16).toUpperCase();
+    return '#' + '00000'.substring(0, 6 - c.length) + c;
+}
+
 // Minimal Native Relay Implementation to bypass library issues
 export class NativeRelay {
     private ws: WebSocket;

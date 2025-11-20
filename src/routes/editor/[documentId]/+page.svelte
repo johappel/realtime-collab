@@ -3,7 +3,7 @@
   import PresenceList from "$lib/PresenceList.svelte";
   import { page } from "$app/stores";
   import type { Awareness } from "y-protocols/awareness";
-  import { getNip07Pubkey, fetchNostrProfile } from "$lib/nostrUtils";
+  import { getNip07Pubkey, fetchNostrProfile, getRandomColor } from "$lib/nostrUtils";
   import { loadConfig } from "$lib/config";
 
   const pageStore = $state($page);
@@ -39,6 +39,10 @@
     try {
       const config = await loadConfig();
       const pubkey = await getNip07Pubkey();
+      
+      // Set color based on pubkey immediately
+      user.color = getRandomColor(pubkey);
+
       const profile = await fetchNostrProfile(pubkey, config.profileRelays);
 
       if (profile && profile.name) {
