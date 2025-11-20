@@ -18,6 +18,29 @@
 
   const documentId = $derived(pageStore.params.documentId ?? "default");
   const isMarkdownView = $derived($page.url.searchParams.has('markdown'));
+  
+  let fetchedContent = $state<string | null>(null);
+  const urlContent = $derived($page.url.searchParams.get('content') || $page.url.searchParams.get('text'));
+  const fileUrl = $derived($page.url.searchParams.get('file'));
+
+  $effect(() => {
+    if (fileUrl) {
+      fetchedContent = null;
+      fetch(fileUrl)
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          fetchedContent = await res.text();
+        })
+        .catch((e) => {
+          console.error("Failed to load file from URL:", e);
+          // Silent fail or alert? Let's log for now.
+        });
+    } else {
+      fetchedContent = null;
+    }
+  });
+
+  const initialContent = $derived(fetchedContent ?? urlContent);
 
   // Hier wird der aktuelle User definiert.
   // Momentan ist dies hardcodiert auf "TestUser".
@@ -225,6 +248,7 @@
         {user}
         {mode}
         {maxWidth}
+        {initialContent}
         bind:title={docTitle}
         onAwarenessReady={handleAwarenessReady}
         bind:editor={editor}

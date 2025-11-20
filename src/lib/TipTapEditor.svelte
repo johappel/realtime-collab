@@ -19,6 +19,7 @@
   import * as Y from "yjs";
   import { Awareness } from "y-protocols/awareness";
   import { untrack } from "svelte";
+  import { marked } from "marked";
 
   let {
     documentId,
@@ -28,6 +29,7 @@
     editor = $bindable(null),
     maxWidth = 1024,
     title = $bindable(""),
+    initialContent = null,
   } = $props<{
     documentId: string;
     user?: { name: string; color: string };
@@ -36,6 +38,7 @@
     editor?: Editor | null;
     maxWidth?: number;
     title?: string;
+    initialContent?: string | null;
   }>();
 
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
@@ -277,6 +280,34 @@
     });
 
     editor = instance;
+
+    // Inject initial content if provided and document is empty
+    if (initialContent && ydoc) {
+      const yXmlFragment = ydoc.getXmlFragment('prosemirror');
+      // Only insert if document is effectively empty (length 0 or just empty paragraph)
+      // Note: Checking yXmlFragment.length might be enough, but TipTap structure is complex.
+      // For simplicity, we check if the Yjs type is empty.
+      if (yXmlFragment.length === 0) {
+         // We need to wait for the editor to be ready to parse HTML/Markdown?
+         // Actually, we can just setContent on the editor instance.
+         // But we should be careful not to overwrite if we are in collaborative mode and data is coming in.
+         // However, if yXmlFragment is empty, it means we have no data yet.
+         
+         // Wait a tick to ensure everything is initialized?
+         setTimeout(async () => {
+             if (instance.isEmpty) {
+                 try {
+                    const htmlContent = await marked.parse(initialContent);
+                    instance.commands.setContent(htmlContent);
+                 } catch (e) {
+                    console.error("Failed to parse initial markdown content", e);
+                    // Fallback to plain text if parsing fails
+                    instance.commands.setContent(initialContent);
+                 }
+             }
+         }, 100);
+      }
+    }
 
     return () => {
       instance.destroy();
