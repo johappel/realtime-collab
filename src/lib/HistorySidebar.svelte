@@ -14,6 +14,8 @@
 
   let profiles: Record<string, { name?: string; picture?: string }> = $state({});
 
+  const sortedSnapshots = $derived([...snapshots].sort((a, b) => b.created_at - a.created_at));
+
   $effect(() => {
     loadConfig().then(async (config) => {
       for (const s of snapshots) {
@@ -41,10 +43,10 @@
   </div>
 
   <div class="list">
-    {#if snapshots.length === 0}
+    {#if sortedSnapshots.length === 0}
       <div class="empty">Keine Snapshots vorhanden</div>
     {/if}
-    {#each snapshots.sort((a, b) => b.created_at - a.created_at) as snapshot}
+    {#each sortedSnapshots as snapshot}
       <div class="item">
         <div class="item-header">
           <span class="author">

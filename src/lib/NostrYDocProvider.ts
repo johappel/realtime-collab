@@ -42,7 +42,7 @@ export interface NostrYDocProviderOptions {
   documentId: string;
   relays?: string[];
   myPubkey: string;
-  signAndPublish: (event: EventTemplate) => Promise<void>;
+  signAndPublish: (event: EventTemplate) => Promise<Event | void>;
   debug?: boolean;
 }
 
@@ -56,7 +56,7 @@ export class NostrYDocProvider {
 
   private myPubkey: string;
 
-  private signAndPublish: (event: EventTemplate) => Promise<void>;
+  private signAndPublish: (event: EventTemplate) => Promise<Event | void>;
   
   private debug: boolean;
 
@@ -83,17 +83,16 @@ export class NostrYDocProvider {
     // Yjs handles duplicate updates internally anyway.
 
     try {
-        if (event.kind === 31338) {
-            // Snapshot
-            if (this.debug) console.log(`[NostrYDocProvider] Received snapshot ${event.id} from ${event.pubkey}`);
-            this.snapshots.set(event.pubkey, event); // One snapshot per pubkey (Replaceable)
+        if (event.kind === 31338 || event.kind === 9338) {
+            // Snapshot (31338 = Replaceable/Current, 9338 = History)
+            if (this.debug) console.log(`[NostrYDocProvider] Received snapshot ${event.id} from ${event.pubkey} (kind ${event.kind})`);
+            
+            // Store by event ID to allow multiple snapshots (history)
+            this.snapshots.set(event.id, event);
+            
             if (this.onSnapshot) {
                 this.onSnapshot(Array.from(this.snapshots.values()));
             }
-            // Optional: Apply snapshot automatically? 
-            // Usually we only apply if we are initializing or if user requests it.
-            // For now, we just store it for the UI.
-            // To apply: Y.applyUpdate(this.ydoc, base64ToUint8(event.content), 'remote');
         } else {
             // Update (9337)
             const update = base64ToUint8(event.content);
@@ -116,7 +115,7 @@ export class NostrYDocProvider {
             }, this.debug);
             
             relay.sendReq({
-                kinds: [9337, 31338],
+                kinds: [9337, 31338, 9338],
                 '#d': [this.documentId],
             });
 
@@ -131,15 +130,24 @@ export class NostrYDocProvider {
       const state = Y.encodeStateAsUpdate(this.ydoc);
       const base64State = uint8ToBase64(state);
       
+      // Use kind 9338 for manual snapshots (History)
       const event: EventTemplate = {
-          kind: 31338,
+          kind: 9338,
           content: base64State,
           tags: [['d', this.documentId]],
           created_at: Math.floor(Date.now() / 1000),
       };
       
-      await this.signAndPublish(event);
-      if (this.debug) console.log(`[NostrYDocProvider] Published snapshot kind 31338`);
+      const signedEvent = await this.signAndPublish(event);
+      if (this.debug) console.log(`[NostrYDocProvider] Published snapshot kind 9338`);
+
+      if (signedEvent && (signedEvent as Event).id) {
+          // Optimistically update local snapshots map and notify UI
+          this.snapshots.set((signedEvent as Event).id, signedEvent as Event);
+          if (this.onSnapshot) {
+              this.onSnapshot(Array.from(this.snapshots.values()));
+          }
+      }
   }
 
   public async applySnapshot(event: Event) {

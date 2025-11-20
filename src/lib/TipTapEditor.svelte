@@ -52,7 +52,7 @@
   let bubbleMenuElement: HTMLDivElement | null = $state(null);
   let ydoc: Y.Doc | null = $state(null);
   let awareness: Awareness | null = $state(null);
-  let provider: any = null;
+  // let provider: any = null; // <-- Removed local declaration
   let awarenessProvider: any = null;
   let persistence: any = null;
   let error: string | null = $state(null);

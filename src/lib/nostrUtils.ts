@@ -30,7 +30,7 @@ export async function signAndPublishNip07(
     relays: string[] = [
         'ws://localhost:7000',
     ]
-): Promise<void> {
+): Promise<Event> {
     if (!window.nostr) {
         throw new Error('NIP-07 Nostr extension not found');
     }
@@ -67,6 +67,8 @@ export async function signAndPublishNip07(
         throw error;
     }
     // Pool NICHT schließen, damit Verbindungen wiederverwendet werden können
+    
+    return signedEvent;
 }
 
 export async function getNip07Pubkey(): Promise<string> {

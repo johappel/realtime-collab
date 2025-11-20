@@ -17,7 +17,7 @@ export interface UseNostrYDocResult {
 export function useNostrYDoc(
   documentId: string,
   myPubkey: string,
-  signAndPublish: (evt: EventTemplate) => Promise<void>,
+  signAndPublish: (evt: EventTemplate) => Promise<any>,
   debug: boolean = false,
   relays?: string[],
 ): UseNostrYDocResult {

@@ -70,6 +70,7 @@ Ein **Google‑Docs‑ähnlicher, Markdown/Rich‑Text‑fähiger Realtime-Edito
   - Nostr-Tag: `["d", <documentId>]`
   - Custom Nostr-Kinds, z. B.:
     - `9337` – CRDT/Yjs-Updates (Binär als Base64 im `content`, Regular Event)
+    - `9338` – Manuelle Snapshots / Versionen (Regular Event)
     - `31338` – optionale Snapshots (Replaceable Event)
     - `31339` – Awareness/Presence (Replaceable Event)
 

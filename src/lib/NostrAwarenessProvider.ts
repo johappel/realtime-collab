@@ -22,7 +22,7 @@ export interface NostrAwarenessProviderOptions {
     documentId: string;
     relays?: string[];
     myPubkey: string;
-    signAndPublish: (event: EventTemplate) => Promise<void>;
+    signAndPublish: (event: EventTemplate) => Promise<any>;
     debug?: boolean;
 }
 /**
@@ -34,7 +34,7 @@ export class NostrAwarenessProvider {
     private awareness: Awareness;
     private documentId: string;
     private myPubkey: string;
-    private signAndPublish: (event: EventTemplate) => Promise<void>;
+    private signAndPublish: (event: EventTemplate) => Promise<any>;
     private lastSentState: string | null = null;
     private debug: boolean;
     private pubkeyToClientId: Map<string, number> = new Map();
