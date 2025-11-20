@@ -11,8 +11,57 @@
   import ListOrdered from "lucide-svelte/icons/list-ordered";
   import Code from "lucide-svelte/icons/code";
   import SquareCode from "lucide-svelte/icons/square-code";
+  import Baseline from "lucide-svelte/icons/baseline";
+  import Highlighter from "lucide-svelte/icons/highlighter";
 
   let { editor } = $props<{ editor: Editor | null }>();
+
+  let showColorPalette = $state(false);
+  let showHighlightPalette = $state(false);
+
+  const textColors = [
+    { name: "Red", value: "#ef4444" },
+    { name: "Green", value: "#22c55e" },
+    { name: "Orange", value: "#f97316" },
+    { name: "Blue", value: "#3b82f6" },
+    { name: "Purple", value: "#a855f7" },
+    { name: "Black", value: "#000000" }, // Reset option
+  ];
+
+  const highlightColors = [
+    { name: "Yellow", value: "#fef08a" },
+    { name: "Green", value: "#bbf7d0" },
+    { name: "Pink", value: "#fbcfe8" },
+    { name: "None", value: "" }, // Reset option
+  ];
+
+  function toggleColorPalette() {
+    showColorPalette = !showColorPalette;
+    showHighlightPalette = false;
+  }
+
+  function toggleHighlightPalette() {
+    showHighlightPalette = !showHighlightPalette;
+    showColorPalette = false;
+  }
+
+  function setTextColor(color: string) {
+    if (color === "#000000") {
+      editor?.chain().focus().unsetColor().run();
+    } else {
+      editor?.chain().focus().setColor(color).run();
+    }
+    showColorPalette = false;
+  }
+
+  function setHighlightColor(color: string) {
+    if (!color) {
+      editor?.chain().focus().unsetHighlight().run();
+    } else {
+      editor?.chain().focus().toggleHighlight({ color }).run();
+    }
+    showHighlightPalette = false;
+  }
 </script>
 
 <div class="toolbar">
@@ -128,6 +177,69 @@
   >
     <SquareCode size={18} />
   </button>
+
+  <span class="toolbar-separator" aria-hidden="true"></span>
+
+  <div class="palette-container">
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Text color"
+      title="Text color"
+      onclick={toggleColorPalette}
+      disabled={!editor}
+    >
+      <Baseline size={18} />
+    </button>
+    {#if showColorPalette}
+      <div class="palette">
+        {#each textColors as color}
+          <button
+            type="button"
+            class="palette-button"
+            style="background-color: {color.value};"
+            title={color.name}
+            onclick={() => setTextColor(color.value)}
+          ></button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+
+  <div class="palette-container">
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Highlight"
+      title="Highlight"
+      onclick={toggleHighlightPalette}
+      disabled={!editor}
+    >
+      <Highlighter size={18} />
+    </button>
+    {#if showHighlightPalette}
+      <div class="palette">
+        {#each highlightColors as color}
+          {#if color.value}
+            <button
+              type="button"
+              class="palette-button"
+              style="background-color: {color.value};"
+              title={color.name}
+              onclick={() => setHighlightColor(color.value)}
+            ></button>
+          {:else}
+             <button
+              type="button"
+              class="palette-button reset-button"
+              title="Remove highlight"
+              onclick={() => setHighlightColor(color.value)}
+            >✕</button>
+          {/if}
+        {/each}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -166,5 +278,46 @@
     height: 1.5rem;
     background-color: #e5e7eb;
     margin: 0 0.25rem;
+  }
+
+  .palette-container {
+    position: relative;
+  }
+
+  .palette {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.25rem;
+    display: flex;
+    gap: 0.25rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 20;
+  }
+
+  .palette-button {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .palette-button:hover {
+    transform: scale(1.1);
+  }
+  
+  .reset-button {
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #ef4444;
   }
 </style>

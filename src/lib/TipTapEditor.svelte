@@ -3,6 +3,9 @@
   import StarterKit from "@tiptap/starter-kit";
   import Collaboration from "@tiptap/extension-collaboration";
   import CollaborationCaret from "@tiptap/extension-collaboration-caret";
+  import { TextStyle } from "@tiptap/extension-text-style";
+  import { Color } from "@tiptap/extension-color";
+  import { Highlight } from "@tiptap/extension-highlight";
   import "./tiptap.css";
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
@@ -232,6 +235,9 @@
         StarterKit.configure({
           history: false,
         } as any),
+        TextStyle,
+        Color,
+        Highlight.configure({ multicolor: true }),
         Collaboration.configure({
           document: ydoc,
           field: "prosemirror",
