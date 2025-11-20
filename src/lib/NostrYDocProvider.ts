@@ -1,3 +1,12 @@
+/**
+ * NostrYDocProvider.ts
+ * 
+ * This module implements a Nostr-based Yjs document provider.
+ * It allows real-time collaboration by broadcasting and receiving
+ * Yjs updates over Nostr relays.
+ * 
+ * */
+ 
 import * as Y from 'yjs';
 import type { EventTemplate, Event } from 'nostr-tools';
 import { NativeRelay } from './nostrUtils';

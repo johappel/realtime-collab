@@ -1,3 +1,11 @@
+/**
+ * NostrAwarenessProvider.ts
+ * 
+ * This module implements a Nostr-based awareness provider for Yjs documents.
+ * It allows real-time collaboration by broadcasting and receiving awareness states
+ * over Nostr relays.
+ * 
+ */
 import { Awareness } from 'y-protocols/awareness';
 import type { EventTemplate, Event } from 'nostr-tools';
 import { NativeRelay } from './nostrUtils';
@@ -6,6 +14,9 @@ const DEFAULT_RELAYS = [
   'ws://localhost:7000',
 ];
 
+/**
+ * Options for NostrAwarenessProvider
+ */
 export interface NostrAwarenessProviderOptions {
     awareness: Awareness;
     documentId: string;
@@ -13,7 +24,9 @@ export interface NostrAwarenessProviderOptions {
     myPubkey: string;
     signAndPublish: (event: EventTemplate) => Promise<void>;
 }
-
+/**
+ * Nostr-based Awareness Provider for Yjs
+ */
 export class NostrAwarenessProvider {
     private activeRelays: NativeRelay[] = [];
     private relays: string[];
@@ -33,7 +46,9 @@ export class NostrAwarenessProvider {
         this.subscribe();
         this.bindAwarenessUpdates();
     }
-
+    /**
+     * Subscribes to Nostr relays to receive awareness updates
+     */
     private subscribe() {
         for (const url of this.relays) {
             try {
@@ -52,7 +67,13 @@ export class NostrAwarenessProvider {
             }
         }
     }
-
+    /**
+     * handles incoming awareness events
+     * Awareness events are Nostr events of kind 31339 that contain
+     * the awareness state of a user in their content field.
+     * @param event 
+     * @returns 
+     */
     private handleEvent(event: Event) {
         try {
             if (event.pubkey === this.myPubkey) return;
@@ -76,12 +97,20 @@ export class NostrAwarenessProvider {
         }
     }
 
+    /**
+     * Binds awareness updates to publish local state changes
+     * Reagiert auf Awareness-Updates, um lokale Zustandsänderungen zu veröffentlichen
+     * @param origin Ursprung der Änderung (z.B. 'remote' für empfangene Änderungen oder undefined für lokale Änderungen)
+     */
     private bindAwarenessUpdates() {
         this.awareness.on('change', ({ added, updated, removed }: any, origin: unknown) => {
+            // wenn die Änderung von nostr kam, ignorieren
             if (origin === 'remote') return;
 
+            // Nur den eigenen Zustand veröffentlichen
             const myClientId = this.awareness.clientID;
 
+            // wenn der eigene ClientId in den Änderungen ist, Zustand veröffentlichen
             if (added.includes(myClientId) || updated.includes(myClientId)) {
                 this.publishMyState();
             }
