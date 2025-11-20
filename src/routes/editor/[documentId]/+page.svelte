@@ -10,6 +10,7 @@
   import { loadConfig } from "$lib/config";
   import type { Editor } from "@tiptap/core";
   import TurndownService from "turndown";
+  import { gfm } from "turndown-plugin-gfm";
 
   import { untrack } from "svelte";
 
@@ -112,7 +113,11 @@
       extension = "doc";
     } else if (format === "markdown") {
       // Basic HTML to Markdown conversion using turndown
-      const turndownService = new TurndownService();
+      const turndownService = new TurndownService({
+        headingStyle: "atx",
+        codeBlockStyle: "fenced",
+      });
+      turndownService.use(gfm);
       content = turndownService.turndown(editor.getHTML());
       mimeType = "text/markdown";
       extension = "md";
