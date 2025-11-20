@@ -457,6 +457,11 @@
     border: 1px solid #e5e7eb;
     gap: 0.25rem;
     align-items: center;
+    visibility: hidden;
+  }
+
+  :global(.tippy-box) .bubble-menu {
+    visibility: visible;
   }
 
   .bubble-menu button {
