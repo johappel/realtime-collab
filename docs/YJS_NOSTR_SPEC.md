@@ -43,8 +43,8 @@ Dieses Dokument beschreibt, wie Yjs (CRDT) mit Nostr-Relays als Transport intera
 ### 3.2 Serialisierung
 
 - **Uint8Array → Base64**
-  - z. B. via:
-    - `btoa(String.fromCharCode(...u8))`
+  - **Wichtig:** Muss in Chunks verarbeitet werden, um Stack Overflow bei großen Updates zu vermeiden (`String.fromCharCode.apply` hat Limits).
+  - Empfohlene Chunk-Größe: 0x8000 (32KB).
 - **Base64 → Uint8Array**
   - `atob` nutzen und resultierenden String in `Uint8Array` umwandeln.
 
@@ -94,6 +94,7 @@ class NostrYDocProvider {
 - **Publish:**
   - `ydoc.on('update', (update, origin) => { … })` registrieren.
   - Nur Updates mit `origin !== 'remote'` senden, um Schleifen zu vermeiden.
+  - **Connection Pooling:** Es wird dringend empfohlen, WebSocket-Verbindungen wiederzuverwenden (z.B. via `SimplePool` oder Shared Connection), da Yjs bei schnellem Tippen viele kleine Updates generiert.
   - Update → Base64 → `EventTemplate` mit Feldern:
     - `kind: 9337`
     - `content: <base64>`

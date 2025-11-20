@@ -91,7 +91,7 @@ class NostrAwarenessProvider {
   - `content` = JSON → Awareness-State für `clientId` setzen.
   - **Wichtig:** Events, die älter als 30 Sekunden sind, sollten ignoriert werden, um "Geister"-User aus vorherigen Sessions zu vermeiden.
   - Eigene Events (z. B. über `clientId`) müssen gefiltert werden, um Feedback-Schleifen zu vermeiden.
-  - **Ghost Killer:** Es muss sichergestellt werden, dass pro Nostr-Pubkey nur eine aktive ClientID existiert. Wenn ein Event von einem bekannten Pubkey mit neuer ClientID empfangen wird, muss die alte ClientID aus dem Awareness-State entfernt werden.
+  - **Ghost Killer:** Es muss sichergestellt werden, dass pro Nostr-Pubkey nur eine aktive ClientID existiert. Wenn ein Event von einem bekannten Pubkey mit neuer ClientID empfangen wird, muss die alte ClientID aus dem Awareness-State entfernt werden. Dies verhindert "Geister"-User, bedeutet aber auch, dass ein User nicht gleichzeitig in zwei Tabs mit demselben Account aktiv sein kann (Last-Write-Wins).
 
 - **Timeout/GC**
   - Falls ein Client längere Zeit keine Updates sendet, sollte dessen Präsenz nach einem Timeout entfernt werden (Yjs Awareness bietet dafür Mechanismen).

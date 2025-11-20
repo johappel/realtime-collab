@@ -57,6 +57,17 @@
   - Refactoring `TipTapEditor.svelte`: Editor wird bei User-Wechsel neu instanziiert statt dynamisch aktualisiert.
   - CSS-Klassen angepasst (`.collaboration-carets__*`), damit Cursors wieder sichtbar sind.
 
+### ✅ Bugfix: Synchronization & Connection Stability (20.11.2025)
+- **Problem**: Synchronisation brach bei großen Änderungen (z.B. Löschen des gesamten Dokuments) ab.
+  - Ursache: Stack Overflow bei der Base64-Konvertierung großer Uint8Arrays.
+  - Lösung: Chunk-basierte Base64-Konvertierung in `NostrYDocProvider` implementiert.
+- **Problem**: "Immer schlimmer werdende" Synchronisation bei schnellen Updates.
+  - Ursache: Connection Leak – für jedes Update wurde eine neue WebSocket-Verbindung geöffnet.
+  - Lösung: Implementierung eines globalen `sharedPool` in `nostrUtils.ts` zur Wiederverwendung von Verbindungen.
+- **Problem**: "Ghost Users" und instabile Presence bei mehreren Tabs.
+  - Ursache: Zu aggressive "Ghost Killer"-Logik löschte aktive Sessions desselben Users.
+  - Lösung: Logik verfeinert – alte Sessions werden nur entfernt, wenn eine *neue* Session desselben Users aktiv wird (Last-Write-Wins pro Pubkey).
+
 ## Implementierte Komponenten
 
 ### Core Libraries
