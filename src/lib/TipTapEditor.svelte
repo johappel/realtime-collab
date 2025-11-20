@@ -70,7 +70,7 @@
             documentId,
             pubkey,
             (evt) => signAndPublishNip07(evt, config.docRelays),
-            true, // Debug-Modus an für Diagnose
+            false, // Debug-Modus an für Diagnose
             config.docRelays
           );
           newYdoc = result.ydoc;
@@ -150,7 +150,7 @@
   });
 
   $effect(() => {
-    if (awareness) {
+    if (awareness && editor) {
       awareness.setLocalStateField("user", {
         name: editorUser.name,
         color: editorUser.color,
