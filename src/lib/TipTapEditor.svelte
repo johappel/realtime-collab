@@ -72,7 +72,7 @@
           // Der vierte Parameter aktiviert den Debug-Modus (true = Logs anzeigen).
           const result = useNostrYDoc(documentId, pubkey, (evt) =>
             signAndPublishNip07(evt),
-            false // Debug-Modus an
+            false // Debug-Modus aus (Production)
           );
           newYdoc = result.ydoc;
           newAwareness = result.awareness;

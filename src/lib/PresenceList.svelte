@@ -11,14 +11,16 @@
     let users = $state<Array<{ id: number; name: string; color: string }>>([]);
 
     $effect(() => {
-        if (!awareness) {
+        const currentAwareness = awareness;
+
+        if (!currentAwareness) {
             users = [];
             return;
         }
 
         const updateUsers = () => {
             const activeUsers: Array<{ id: number; name: string; color: string }> = [];
-            awareness.getStates().forEach((state: any, clientId: number) => {
+            currentAwareness.getStates().forEach((state: any, clientId: number) => {
                 if (state.user) {
                     activeUsers.push({
                         id: clientId,
@@ -34,10 +36,10 @@
         updateUsers();
 
         // Listen for changes
-        awareness.on('change', updateUsers);
+        currentAwareness.on('change', updateUsers);
         
         return () => {
-            awareness.off('change', updateUsers);
+            currentAwareness.off('change', updateUsers);
         };
     });
 </script>
