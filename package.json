@@ -13,7 +13,8 @@
 		"lint": "eslint .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"update-doc": "tsx scripts/update-doc.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
@@ -39,7 +40,8 @@
 		"vite": "^7.1.10",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vitest": "^4.0.5",
-		"vitest-browser-svelte": "^2.0.1"
+		"vitest-browser-svelte": "^2.0.1",
+		"tsx": "^4.19.2"
 	},
 	"dependencies": {
 		"@sveltejs/vite-plugin-svelte-inspector": "^5.0.1",
@@ -54,12 +56,18 @@
 		"@tiptap/extension-table-header": "^3.11.0",
 		"@tiptap/extension-table-row": "^3.11.0",
 		"@tiptap/extension-text-style": "^3.11.0",
+		"@tiptap/html": "^3.11.0",
 		"@tiptap/starter-kit": "^3.10.8",
 		"@tiptap/y-tiptap": "^3.0.1",
+		"@types/jsdom": "^27.0.0",
+		"@types/ws": "^8.18.1",
+		"jsdom": "^27.2.0",
 		"lucide-svelte": "^0.554.0",
+		"marked": "^17.0.0",
 		"nostr-tools": "^2.17.3",
 		"turndown": "^7.2.2",
 		"turndown-plugin-gfm": "^1.0.2",
+		"ws": "^8.18.3",
 		"y-indexeddb": "^9.0.12",
 		"y-protocols": "^1.0.6",
 		"yjs": "^13.6.27"

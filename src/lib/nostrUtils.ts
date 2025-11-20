@@ -125,11 +125,13 @@ export class NativeRelay {
     private url: string;
     private subId: string;
     private onEvent: (event: Event) => void;
+    private onEOSE?: () => void;
     private debug: boolean;
 
-    constructor(url: string, onEvent: (event: Event) => void, debug: boolean = false) {
+    constructor(url: string, onEvent: (event: Event) => void, debug: boolean = false, onEOSE?: () => void) {
         this.url = url;
         this.onEvent = onEvent;
+        this.onEOSE = onEOSE;
         this.debug = debug;
         this.subId = 'sub-' + Math.random().toString(36).substring(2);
         this.ws = new WebSocket(url);
@@ -151,6 +153,7 @@ export class NativeRelay {
                     this.onEvent(payload as Event);
                 } else if (type === 'EOSE' && subId === this.subId) {
                     if (this.debug) console.log(`[NativeRelay] EOSE from ${url}`);
+                    if (this.onEOSE) this.onEOSE();
                 } else if (type === 'NOTICE') {
                     console.warn(`[NativeRelay] NOTICE from ${url}:`, subId); // subId is message here
                 }
