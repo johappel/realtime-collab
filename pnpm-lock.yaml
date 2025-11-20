@@ -17,9 +17,9 @@ importers:
       '@tiptap/extension-collaboration':
         specifier: ^3.10.8
         version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(y-protocols@1.0.6(yjs@13.6.27))(yjs@13.6.27))(yjs@13.6.27)
-      '@tiptap/extension-collaboration-cursor':
-        specifier: 3.0.0-next.6
-        version: 3.0.0-next.6(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(y-protocols@1.0.6(yjs@13.6.27))(yjs@13.6.27))
+      '@tiptap/extension-collaboration-caret':
+        specifier: ^3.10.8
+        version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(y-protocols@1.0.6(yjs@13.6.27))(yjs@13.6.27))
       '@tiptap/starter-kit':
         specifier: ^3.10.8
         version: 3.11.0
@@ -684,12 +684,12 @@ packages:
     peerDependencies:
       '@tiptap/core': ^3.11.0
 
-  '@tiptap/extension-collaboration-cursor@3.0.0-next.6':
-    resolution: {integrity: sha512-eb9XD8RLzyaF7wMy6nQpTBmOxoaEfuQFiJJW6Po8iMfNpFs2YM23ZhYvbz7nY1OOlu1uN/EHYW3sXv5TPySeVQ==}
+  '@tiptap/extension-collaboration-caret@3.11.0':
+    resolution: {integrity: sha512-5LBWkECCUvdVgsq410UjdalLJ5Pa80uPJZ+iGIRzZ2+/pbIjlfKFhnysd1b1WjSJQyt6wZ0fk1F19ZezDw+foQ==}
     peerDependencies:
-      '@tiptap/core': ^3.0.0-next.3
-      '@tiptap/pm': ^3.0.0-next.3
-      '@tiptap/y-tiptap': ^1.0.0
+      '@tiptap/core': ^3.11.0
+      '@tiptap/pm': ^3.11.0
+      '@tiptap/y-tiptap': ^3.0.0
 
   '@tiptap/extension-collaboration@3.11.0':
     resolution: {integrity: sha512-2eEHHJNycY1B7+siyUtjgZdYm/MTGhFjmhS64au41nHCkvMqO8JwNGP/p5fBMZ08zYlzxYR5yjjI+Li7k8dyYg==}
@@ -2339,7 +2339,7 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
 
-  '@tiptap/extension-collaboration-cursor@3.0.0-next.6(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(y-protocols@1.0.6(yjs@13.6.27))(yjs@13.6.27))':
+  '@tiptap/extension-collaboration-caret@3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.3)(y-protocols@1.0.6(yjs@13.6.27))(yjs@13.6.27))':
     dependencies:
       '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
       '@tiptap/pm': 3.11.0

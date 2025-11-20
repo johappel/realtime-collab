@@ -2,7 +2,7 @@
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
   import Collaboration from "@tiptap/extension-collaboration";
-  import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
+  import CollaborationCaret from "@tiptap/extension-collaboration-caret";
   import "./tiptap.css";
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
@@ -153,12 +153,24 @@
     };
   });
 
+  // Sync user state with awareness
+  // Note: CollaborationCaret also syncs user state on init, but we keep this
+  // to ensure updates are propagated if we ever decide to not recreate the editor
   $effect(() => {
     if (awareness && editor) {
-      awareness.setLocalStateField("user", {
+      // Check if state is already correct to avoid unnecessary updates
+      const currentState = awareness.getLocalState() as any;
+      const newUser = {
         name: editorUser.name,
         color: editorUser.color,
-      });
+      };
+      
+      if (!currentState || 
+          currentState.user?.name !== newUser.name || 
+          currentState.user?.color !== newUser.color) {
+          
+        awareness.setLocalStateField("user", newUser);
+      }
     }
   });
 
@@ -209,9 +221,10 @@
   $effect(() => {
     if (!editorElement || !ydoc || !awareness) return;
 
-    // Untrack editorUser so this effect doesn't re-run when user changes
-    // This prevents destroying and recreating the editor when the profile loads
-    const initialUser = untrack(() => editorUser);
+    // Re-create editor when user changes to ensure consistent state
+    // This avoids "mismatched transaction" errors that can occur when updating
+    // the user in an existing CollaborationCaret instance
+    const currentUser = editorUser;
 
     const instance = new Editor({
       element: editorElement,
@@ -223,11 +236,11 @@
           document: ydoc,
           field: "prosemirror",
         }),
-        CollaborationCursor.configure({
+        CollaborationCaret.configure({
           provider: { awareness },
           user: {
-            name: initialUser.name,
-            color: initialUser.color,
+            name: currentUser.name,
+            color: currentUser.color,
           },
         }),
       ],

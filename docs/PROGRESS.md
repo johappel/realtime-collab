@@ -48,6 +48,15 @@
   - Synchronisation des Titels über Yjs Metadata (`ydoc.getMap("metadata")`).
   - **Bugfix**: Reaktivitäts-Problem (Input Locking) durch `untrack` in Svelte 5 Runes behoben.
 
+### ✅ Bugfix: Mismatched Transaction & Cursor Visibility (20.11.2025)
+- **Problem**: `RangeError: Applying a mismatched transaction` beim Laden des Editors.
+  - Ursache: Versionskonflikt zwischen `@tiptap/extension-collaboration` (v3) und `@tiptap/extension-collaboration-cursor` (deprecated).
+  - Ursache 2: Race Conditions beim dynamischen Update des Users im Editor.
+- **Lösung**:
+  - Migration auf `@tiptap/extension-collaboration-caret` (offizieller Nachfolger für v3).
+  - Refactoring `TipTapEditor.svelte`: Editor wird bei User-Wechsel neu instanziiert statt dynamisch aktualisiert.
+  - CSS-Klassen angepasst (`.collaboration-carets__*`), damit Cursors wieder sichtbar sind.
+
 ## Implementierte Komponenten
 
 ### Core Libraries
