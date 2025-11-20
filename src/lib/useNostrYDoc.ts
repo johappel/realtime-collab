@@ -43,6 +43,7 @@ export function useNostrYDoc(
     myPubkey,
     signAndPublish,
     relays,
+    debug,
   });
 
   return { ydoc, yXmlFragment, provider, awareness, awarenessProvider, persistence };

@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteInspector } from '@sveltejs/vite-plugin-svelte-inspector';
+import path from 'path';
 
 export default defineConfig({
 	plugins: [
@@ -12,6 +13,11 @@ export default defineConfig({
 		svelteInspector(),
 		devtoolsJson()
 	],
+	resolve: {
+		alias: {
+			'@tiptap/y-tiptap': path.resolve(process.cwd(), 'node_modules/@tiptap/y-tiptap'),
+		}
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [

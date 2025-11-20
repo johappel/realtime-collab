@@ -9,6 +9,26 @@
 
     // Derive active users from awareness
     let users = $state<Array<{ id: number; name: string; color: string }>>([]);
+    let pulsingUsers = $state<Record<number, boolean>>({});
+    let timeouts: Record<number, any> = {};
+
+    function triggerPulse(id: number) {
+        // console.log('Triggering pulse for', id);
+        if (timeouts[id]) clearTimeout(timeouts[id]);
+
+        // Reset state (force reactivity)
+        pulsingUsers[id] = false;
+        
+        setTimeout(() => {
+            pulsingUsers[id] = true;
+            // console.log('Pulse ON', id);
+            
+            timeouts[id] = setTimeout(() => {
+                pulsingUsers[id] = false;
+                // console.log('Pulse OFF', id);
+            }, 500);
+        }, 20);
+    }
 
     $effect(() => {
         const currentAwareness = awareness;
@@ -32,14 +52,28 @@
             users = activeUsers;
         };
 
+        const onChange = (changes: any, origin: any) => {
+            // console.log('PresenceList change:', changes, origin);
+            updateUsers();
+            if (changes && changes.updated) {
+                changes.updated.forEach((id: number) => {
+                    // Only pulse for remote changes or if we want to see our own pulse (usually not)
+                    // The origin 'remote' comes from NostrAwarenessProvider
+                    if (id !== currentAwareness.clientID) {
+                        triggerPulse(id);
+                    }
+                });
+            }
+        };
+
         // Initial update
         updateUsers();
 
         // Listen for changes
-        currentAwareness.on('change', updateUsers);
+        currentAwareness.on('change', onChange);
         
         return () => {
-            currentAwareness.off('change', updateUsers);
+            currentAwareness.off('change', onChange);
         };
     });
 </script>
@@ -59,7 +93,7 @@
         <div class="presence-avatars">
             {#each users as user (user.id)}
                 <div
-                     class="avatar"
+                     class="avatar {pulsingUsers[user.id] ? 'pulsing' : ''}"
                     style="background-color: {user.color}"
                     title={user.name}
                 >
@@ -116,5 +150,26 @@
         color: white;
         border: 2px solid white;
         box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+        cursor: default;
+        position: relative; /* Wichtig für z-index */
+    }
+
+    @keyframes pulse-ring {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+        }
+        50% {
+            transform: scale(1.15);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+        }
+    }
+
+    .pulsing {
+        animation: pulse-ring 0.5s cubic-bezier(0.4, 0, 0.6, 1);
+        z-index: 10;
     }
 </style>

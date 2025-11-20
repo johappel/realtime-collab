@@ -5,6 +5,6 @@
   "profileRelays": [
     "wss://relay.damus.io",
     "wss://relay.primal.net",
-    "ws://localhost:7000"
+    "wss://relay-rpi.edufeed.org"
   ]
 }

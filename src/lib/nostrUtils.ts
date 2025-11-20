@@ -1,3 +1,12 @@
+/**
+ * nostrUtils.ts
+ * 
+ * This module provides utility functions and classes for interacting with Nostr relays,
+ * including signing and publishing events using the NIP-07 browser extension.
+ * It also includes a minimal NativeRelay implementation to facilitate communication
+ * with Nostr relays in environments where existing libraries may have limitations.
+ * 
+ */
 import type { EventTemplate, Event, UnsignedEvent } from 'nostr-tools';
 
 declare global {

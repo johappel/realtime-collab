@@ -23,6 +23,7 @@ export interface NostrAwarenessProviderOptions {
     relays?: string[];
     myPubkey: string;
     signAndPublish: (event: EventTemplate) => Promise<void>;
+    debug?: boolean;
 }
 /**
  * Nostr-based Awareness Provider for Yjs
@@ -35,6 +36,7 @@ export class NostrAwarenessProvider {
     private myPubkey: string;
     private signAndPublish: (event: EventTemplate) => Promise<void>;
     private lastSentState: string | null = null;
+    private debug: boolean;
 
     constructor(opts: NostrAwarenessProviderOptions) {
         this.awareness = opts.awareness;
@@ -42,6 +44,7 @@ export class NostrAwarenessProvider {
         this.relays = opts.relays ?? DEFAULT_RELAYS;
         this.myPubkey = opts.myPubkey;
         this.signAndPublish = opts.signAndPublish;
+        this.debug = opts.debug ?? false;
 
         this.subscribe();
         this.bindAwarenessUpdates();
@@ -76,14 +79,25 @@ export class NostrAwarenessProvider {
      */
     private handleEvent(event: Event) {
         try {
-            if (event.pubkey === this.myPubkey) return;
+            // if (event.pubkey === this.myPubkey) return; // Don't filter by pubkey to allow multi-tab testing with same account
+
+            // Ignore events older than 30 seconds to prevent "ghost" users from previous sessions
+            const now = Math.floor(Date.now() / 1000);
+            if (event.created_at < now - 30) {
+                if (this.debug) console.log(`[NostrAwareness] Ignoring old event from ${event.created_at}`);
+                return;
+            }
 
             const content = JSON.parse(event.content);
             const { clientId, state } = content;
 
+            // Ignore updates from our own clientID (echoed events)
+            if (clientId === this.awareness.clientID) return;
+
             if (clientId && state) {
                 const current = this.awareness.states.get(clientId);
                 if (JSON.stringify(current) !== JSON.stringify(state)) {
+                    if (this.debug) console.log(`[NostrAwareness] Updating state for ${clientId}`, state);
                     this.awareness.states.set(clientId, state);
                     this.awareness.emit('change', [{
                         added: current ? [] : [clientId],

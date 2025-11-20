@@ -2,6 +2,7 @@
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
   import Collaboration from "@tiptap/extension-collaboration";
+  import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
   import "./tiptap.css";
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
@@ -9,6 +10,7 @@
   import { loadConfig } from "./config";
   import * as Y from "yjs";
   import { Awareness } from "y-protocols/awareness";
+  import { untrack } from "svelte";
   import Bold from "lucide-svelte/icons/bold";
   import Italic from "lucide-svelte/icons/italic";
   import Undo2 from "lucide-svelte/icons/undo-2";
@@ -119,6 +121,13 @@
 
     return () => {
       cancelled = true;
+
+      // Destroy editor before destroying Yjs doc to prevent "mismatched transaction" errors
+      if (editor) {
+        editor.destroy();
+        editor = null;
+      }
+
       if (provider && typeof provider.destroy === "function") {
         provider.destroy();
       }
@@ -146,7 +155,11 @@
   });
 
   $effect(() => {
-    if (!editorElement || !ydoc) return;
+    if (!editorElement || !ydoc || !awareness) return;
+
+    // Untrack editorUser so this effect doesn't re-run when user changes
+    // This prevents destroying and recreating the editor when the profile loads
+    const initialUser = untrack(() => editorUser);
 
     const instance = new Editor({
       element: editorElement,
@@ -157,6 +170,13 @@
         Collaboration.configure({
           document: ydoc,
           field: "prosemirror",
+        }),
+        CollaborationCursor.configure({
+          provider: { awareness },
+          user: {
+            name: initialUser.name,
+            color: initialUser.color,
+          },
         }),
       ],
       editorProps: {
