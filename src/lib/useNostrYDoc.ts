@@ -21,7 +21,40 @@ export function useNostrYDoc(
   debug: boolean = false,
   relays?: string[],
 ): UseNostrYDocResult {
-  const ydoc = new Y.Doc();
+  // Try to restore clientID from sessionStorage to prevent "ghost users" on reload
+  let clientID: number | undefined;
+  try {
+    const stored = sessionStorage.getItem(`yjs_clientId_${documentId}`);
+    if (stored) {
+      clientID = parseInt(stored, 10);
+      if (debug) console.log(`[useNostrYDoc] Restored clientID: ${clientID}`);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // If no stored ID, Yjs will generate one. We should store it after creation.
+  // However, Y.Doc constructor allows passing clientID.
+  // If we don't pass it, it's random.
+  
+  const ydocOptions: any = {};
+  if (clientID) {
+    ydocOptions.clientID = clientID;
+  }
+
+  const ydoc = new Y.Doc(ydocOptions);
+  
+  if (!clientID) {
+      if (debug) console.log(`[useNostrYDoc] Generated new clientID: ${ydoc.clientID}`);
+  }
+  
+  // Store the clientID for next reload
+  try {
+    sessionStorage.setItem(`yjs_clientId_${documentId}`, ydoc.clientID.toString());
+  } catch (e) {
+    // ignore
+  }
+
   const yXmlFragment = ydoc.getXmlFragment('prosemirror');
   const awareness = new Awareness(ydoc);
 

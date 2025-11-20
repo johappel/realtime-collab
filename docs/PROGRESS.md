@@ -108,6 +108,11 @@ new NostrYDocProvider({
 4. **Race Conditions beim Profil-Laden**:
    - Wurde durch `untrack` und strikte Cleanup-Reihenfolge im `TipTapEditor` behoben.
 
+5. **Ghost Users**:
+   - Implementierung einer "Single Session per User" Logik im `NostrAwarenessProvider`.
+   - Alte Sessions desselben Users (gleicher Pubkey, andere ClientID) werden aktiv entfernt.
+   - Explizites `awareness.destroy()` beim Unmounten verhindert verwaiste Verbindungen.
+
 ## Projektmetriken
 
 - **Implementierte MVPs**: 3/3

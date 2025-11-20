@@ -37,6 +37,7 @@ export class NostrAwarenessProvider {
     private signAndPublish: (event: EventTemplate) => Promise<void>;
     private lastSentState: string | null = null;
     private debug: boolean;
+    private pubkeyToClientId: Map<string, number> = new Map();
 
     constructor(opts: NostrAwarenessProviderOptions) {
         this.awareness = opts.awareness;
@@ -94,16 +95,66 @@ export class NostrAwarenessProvider {
             // Ignore updates from our own clientID (echoed events)
             if (clientId === this.awareness.clientID) return;
 
-            if (clientId && state) {
-                const current = this.awareness.states.get(clientId);
-                if (JSON.stringify(current) !== JSON.stringify(state)) {
-                    if (this.debug) console.log(`[NostrAwareness] Updating state for ${clientId}`, state);
-                    this.awareness.states.set(clientId, state);
+            // "Single Session per User" enforcement:
+            // If we receive an event from our own Pubkey but with a different ClientID,
+            // it is likely a "ghost" from a previous session (e.g. before reload).
+            // We treat it as stale and remove it.
+            // Note: This prevents multi-tab usage with the SAME Nostr account.
+            if (event.pubkey === this.myPubkey && clientId !== this.awareness.clientID) {
+                if (this.awareness.states.has(clientId)) {
+                    if (this.debug) console.log(`[NostrAwareness] Removing ghost session ${clientId} for my pubkey`);
+                    this.awareness.states.delete(clientId);
                     this.awareness.emit('change', [{
-                        added: current ? [] : [clientId],
-                        updated: current ? [clientId] : [],
-                        removed: []
+                        added: [],
+                        updated: [],
+                        removed: [clientId]
                     }, 'remote']);
+                }
+                return;
+            }
+
+            // Ghost Killer: Enforce one clientId per pubkey for OTHER users
+            // If we see a new clientId for a known pubkey, remove the old one
+            if (event.pubkey) {
+                const existingClientId = this.pubkeyToClientId.get(event.pubkey);
+                if (existingClientId && existingClientId !== clientId) {
+                    if (this.awareness.states.has(existingClientId)) {
+                        if (this.debug) console.log(`[NostrAwareness] Ghost Killer: Removing old clientId ${existingClientId} for pubkey ${event.pubkey}`);
+                        this.awareness.states.delete(existingClientId);
+                        this.awareness.emit('change', [{
+                            added: [],
+                            updated: [],
+                            removed: [existingClientId]
+                        }, 'remote']);
+                    }
+                }
+                this.pubkeyToClientId.set(event.pubkey, clientId);
+            }
+
+            if (clientId) {
+                if (state === null) {
+                    // User went offline
+                    if (this.awareness.states.has(clientId)) {
+                        if (this.debug) console.log(`[NostrAwareness] Removing user ${clientId}`);
+                        this.awareness.states.delete(clientId);
+                        this.awareness.emit('change', [{
+                            added: [],
+                            updated: [],
+                            removed: [clientId]
+                        }, 'remote']);
+                    }
+                } else {
+                    // User updated state
+                    const current = this.awareness.states.get(clientId);
+                    if (JSON.stringify(current) !== JSON.stringify(state)) {
+                        if (this.debug) console.log(`[NostrAwareness] Updating state for ${clientId}`, state);
+                        this.awareness.states.set(clientId, state);
+                        this.awareness.emit('change', [{
+                            added: current ? [] : [clientId],
+                            updated: current ? [clientId] : [],
+                            removed: []
+                        }, 'remote']);
+                    }
                 }
             }
         } catch (error) {
@@ -125,7 +176,7 @@ export class NostrAwarenessProvider {
             const myClientId = this.awareness.clientID;
 
             // wenn der eigene ClientId in den Änderungen ist, Zustand veröffentlichen
-            if (added.includes(myClientId) || updated.includes(myClientId)) {
+            if (added.includes(myClientId) || updated.includes(myClientId) || removed.includes(myClientId)) {
                 this.publishMyState();
             }
         });
@@ -133,7 +184,7 @@ export class NostrAwarenessProvider {
 
     private publishMyState() {
         const state = this.awareness.getLocalState();
-        if (!state) return;
+        // if (!state) return; // Allow null state to signal offline
 
         const stateStr = JSON.stringify(state);
         if (stateStr === this.lastSentState) return;

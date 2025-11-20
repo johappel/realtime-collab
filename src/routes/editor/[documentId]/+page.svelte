@@ -22,6 +22,14 @@
   let awareness: Awareness | null = $state(null);
 
   $effect(() => {
+    const storedMode = localStorage.getItem("editor_mode");
+    if (storedMode === "nostr" || storedMode === "local") {
+      mode = storedMode;
+    }
+  });
+
+  $effect(() => {
+    localStorage.setItem("editor_mode", mode);
     if (mode === "nostr") {
       loadNostrProfile();
     }

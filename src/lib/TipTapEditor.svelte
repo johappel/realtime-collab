@@ -43,6 +43,7 @@
   let ydoc: Y.Doc | null = $state(null);
   let awareness: Awareness | null = $state(null);
   let provider: any = null;
+  let awarenessProvider: any = null;
   let persistence: any = null;
   let error: string | null = $state(null);
   let loading: boolean = $state(false);
@@ -64,6 +65,7 @@
         let newYdoc: Y.Doc;
         let newAwareness: Awareness;
         let newProvider: any = null;
+        let newAwarenessProvider: any = null;
         let newPersistence: any = null;
 
         if (mode === "nostr") {
@@ -78,12 +80,13 @@
             documentId,
             pubkey,
             (evt) => signAndPublishNip07(evt, config.docRelays),
-            false, // Debug-Modus aus (Production)
+            true, // Debug-Modus an für Diagnose
             config.docRelays
           );
           newYdoc = result.ydoc;
           newAwareness = result.awareness;
           newProvider = result.provider;
+          newAwarenessProvider = result.awarenessProvider;
           newPersistence = result.persistence;
         } else {
           const result = useLocalYDoc(documentId);
@@ -97,6 +100,9 @@
           if (newProvider && typeof newProvider.destroy === "function") {
             newProvider.destroy();
           }
+          if (newAwarenessProvider && typeof newAwarenessProvider.destroy === "function") {
+            newAwarenessProvider.destroy();
+          }
           if (newPersistence && typeof newPersistence.destroy === "function") {
             newPersistence.destroy();
           }
@@ -106,6 +112,7 @@
         ydoc = newYdoc;
         awareness = newAwareness;
         provider = newProvider;
+        awarenessProvider = newAwarenessProvider;
         persistence = newPersistence;
       } catch (e) {
         console.error("Failed to initialize editor:", e);
@@ -131,6 +138,12 @@
       if (provider && typeof provider.destroy === "function") {
         provider.destroy();
       }
+      if (awarenessProvider && typeof awarenessProvider.destroy === "function") {
+        awarenessProvider.destroy();
+      }
+      if (awareness) {
+        awareness.destroy();
+      }
       if (persistence && typeof persistence.destroy === "function") {
         persistence.destroy();
       }
@@ -140,6 +153,7 @@
       ydoc = null;
       awareness = null;
       provider = null;
+      awarenessProvider = null;
       persistence = null;
       loading = false;
     };
