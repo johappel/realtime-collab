@@ -19,6 +19,7 @@
     onAwarenessReady,
     editor = $bindable(null),
     maxWidth = 1024,
+    title = $bindable(""),
   } = $props<{
     documentId: string;
     user?: { name: string; color: string };
@@ -26,6 +27,7 @@
     onAwarenessReady?: (awareness: Awareness | null) => void;
     editor?: Editor | null;
     maxWidth?: number;
+    title?: string;
   }>();
 
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
@@ -158,6 +160,50 @@
         color: editorUser.color,
       });
     }
+  });
+
+  // Sync Title with Yjs Metadata
+  $effect(() => {
+    if (!ydoc) return;
+
+    const metaMap = ydoc.getMap("metadata");
+
+    const handleMetaUpdate = (event: Y.YMapEvent<any>) => {
+      // Ignore local updates to prevent loops/cursor jumps
+      if (event.transaction.local) return;
+
+      const storedTitle = metaMap.get("title") as string;
+      if (storedTitle !== undefined && storedTitle !== title) {
+        title = storedTitle;
+      }
+    };
+
+    metaMap.observe(handleMetaUpdate);
+    
+    // Initial sync
+    const storedTitle = metaMap.get("title") as string;
+    untrack(() => {
+      if (storedTitle !== undefined && storedTitle !== title) {
+          title = storedTitle;
+      } else if (storedTitle === undefined && title && title !== documentId) {
+           metaMap.set("title", title);
+      }
+    });
+
+    return () => {
+      metaMap.unobserve(handleMetaUpdate);
+    };
+  });
+
+  // Write title changes to Yjs
+  $effect(() => {
+      if (!ydoc) return;
+      const metaMap = ydoc.getMap("metadata");
+      const storedTitle = metaMap.get("title") as string;
+      
+      if (title && title !== storedTitle) {
+          metaMap.set("title", title);
+      }
   });
 
   $effect(() => {

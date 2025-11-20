@@ -10,6 +10,8 @@
   import { loadConfig } from "$lib/config";
   import type { Editor } from "@tiptap/core";
 
+  import { untrack } from "svelte";
+
   const pageStore = $state($page);
 
   const documentId = $derived(pageStore.params.documentId ?? "default");
@@ -30,6 +32,9 @@
   let showSettings = $state(false);
   let maxWidth = $state(1024);
   let settingsButton: HTMLButtonElement | null = $state(null);
+  
+  // Initialize with documentId. Updates will come via binding from TipTapEditor
+  let docTitle = $state(untrack(() => documentId));
 
   $effect(() => {
     const storedMode = localStorage.getItem("editor_mode");
@@ -148,7 +153,13 @@
 <main class="page">
   <header class="header">
     <div class="header-left">
-        <h1 class="doc-title">{documentId}</h1>
+        <input 
+            type="text" 
+            class="doc-title-input" 
+            bind:value={docTitle} 
+            placeholder={documentId}
+            title="Dokumenttitel bearbeiten"
+        />
     </div>
 
     <div class="header-center">
@@ -187,6 +198,7 @@
         {user}
         {mode}
         {maxWidth}
+        bind:title={docTitle}
         onAwarenessReady={handleAwarenessReady}
         bind:editor={editor}
       />
@@ -248,14 +260,29 @@
       gap: 1rem;
   }
 
-  .doc-title {
+  .doc-title-input {
     font-size: 1.125rem;
     font-weight: 600;
     margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    width: 100%;
+    max-width: 250px;
+    color: #111827;
+    transition: all 0.2s;
+  }
+
+  .doc-title-input:hover {
+      background-color: #f3f4f6;
+  }
+
+  .doc-title-input:focus {
+      outline: none;
+      background-color: white;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
   }
 
   .toolbar-wrapper {
@@ -370,10 +397,6 @@
       .header-left, .header-center, .header-right {
           width: 100%;
           justify-content: center;
-      }
-      
-      .doc-title {
-          text-align: center;
       }
   }
 </style>
