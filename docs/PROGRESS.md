@@ -25,22 +25,23 @@
 - Bidirektionale Synchronisation über Nostr-Relays (kind: 9337 - Regular Event für History)
 - **Neu:** Custom `NativeRelay` Implementierung für robuste Browser-Verbindungen
 - **Neu:** Debug-Modus für detailliertes Logging
+- **Neu:** Offline-First Architektur durch `y-indexeddb` (Persistenz auch ohne Verbindung)
 
 ### ✅ MVP 3: Presence & Cursors
 - `NostrAwarenessProvider` implementiert (kind: 31339)
 - CollaborationCursor-Extension integriert
-- PresenceList-Komponente zeigt aktive Nutzer
+- PresenceList-Komponente zeigt aktive Nutzer (Reaktivität gefixt)
 - Awareness-State wird über Nostr synchronisiert
 - Farbcodierte Cursor und User-Avatare
 
 ## Implementierte Komponenten
 
 ### Core Libraries
-- ✅ `src/lib/useLocalYDoc.ts` - Lokales Yjs-Setup mit Awareness
-- ✅ `src/lib/useNostrYDoc.ts` - Nostr-basiertes Yjs-Setup
+- ✅ `src/lib/useLocalYDoc.ts` - Lokales Yjs-Setup mit Awareness & IndexedDB
+- ✅ `src/lib/useNostrYDoc.ts` - Nostr-basiertes Yjs-Setup mit IndexedDB
 - ✅ `src/lib/NostrYDocProvider.ts` - Yjs-Dokument-Synchronisation via Nostr (mit NativeRelay)
-- ✅ `src/lib/NostrAwarenessProvider.ts` - Presence-Synchronisation via Nostr
-- ✅ `src/lib/nostrUtils.ts` - NIP-07 Integration
+- ✅ `src/lib/NostrAwarenessProvider.ts` - Presence-Synchronisation via Nostr (mit NativeRelay)
+- ✅ `src/lib/nostrUtils.ts` - NIP-07 Integration & NativeRelay Shared Class
 
 ### UI Komponenten
 - ✅ `src/lib/TipTapEditor.svelte` - Haupt-Editor mit Mode-Switching

@@ -41,6 +41,7 @@ npm install nostr-tools y-protocols
 
 - [x] Editor funktioniert stabil lokal unter `/editor/[documentId]`.
 - [x] Änderungen im Dokument werden via Yjs-CRDT verwaltet (kein eigener Merge-Code).
+- [x] Inhalte bleiben nach Reload erhalten (IndexedDB).
 
 ---
 
@@ -59,11 +60,14 @@ npm install nostr-tools y-protocols
 - [x] `useNostrYDoc(documentId, myPubkey, signAndPublish)` implementieren.
 - [x] `TipTapEditor.svelte` so erweitern, dass zwischen lokalem und Nostr-Modus gewechselt werden kann.
 - [x] Eine einfache `signAndPublish`-Implementierung für Browser mit NIP‑07 vorbereiten (Konzept + Beispiel).
+- [x] `NativeRelay` Implementierung für stabilen Browser-Support.
+- [x] Offline-First Support via `y-indexeddb` integrieren.
 
 **Akzeptanzkriterien:**
 
 - [x] Zwei Browserfenster, gleiche `documentId`, gleicher Relay – Änderungen werden nahezu in Echtzeit synchronisiert.
 - [x] Keine sichtbaren Merge-Konflikte (Yjs erledigt das).
+- [x] Offline-Änderungen werden synchronisiert, sobald Verbindung wiederhergestellt ist.
 
 ---
 

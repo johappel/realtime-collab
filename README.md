@@ -8,11 +8,13 @@ Ein **Google Docs-ähnlicher Realtime-Editor** mit Svelte 5, TipTap, Yjs und Nos
 - Rich-Text Editor mit TipTap
 - CRDT-basierte Konfliktauflösung mit Yjs
 - Lokale Kollaboration (mehrere Tabs)
+- **Offline-Support** dank IndexedDB
 
 ✅ **MVP 2 - Nostr-Integration**
 - Dezentralisierte Synchronisation über Nostr-Relays
 - Unterstützung für NIP-07 Browser-Extensions
 - Mode-Switcher (Local/Nostr)
+- Robuste WebSocket-Verbindung via `NativeRelay`
 
 ✅ **MVP 3 - Presence & Cursors**
 - Live-Cursor-Synchronisation
