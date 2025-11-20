@@ -17,6 +17,7 @@
   const pageStore = $state($page);
 
   const documentId = $derived(pageStore.params.documentId ?? "default");
+  const isMarkdownView = $derived($page.url.searchParams.has('markdown'));
 
   // Hier wird der aktuelle User definiert.
   // Momentan ist dies hardcodiert auf "TestUser".
@@ -35,6 +36,8 @@
   let maxWidth = $state(1024);
   let settingsButton: HTMLButtonElement | null = $state(null);
   
+  let markdownContent = $state("");
+
   // Initialize with documentId. Updates will come via binding from TipTapEditor
   let docTitle = $state(untrack(() => documentId));
 
@@ -42,6 +45,9 @@
     const storedMode = localStorage.getItem("editor_mode");
     if (storedMode === "nostr" || storedMode === "local") {
       mode = storedMode;
+    } else if (isMarkdownView) {
+      // Default to nostr for markdown view if no preference is stored
+      mode = "nostr";
     }
     
     const storedWidth = localStorage.getItem("editor_max_width");
@@ -64,6 +70,27 @@
   // Load config to get relays
   $effect(() => {
       loadConfig().then(c => relays = c.docRelays);
+  });
+
+  $effect(() => {
+    if (isMarkdownView && editor) {
+      const update = () => {
+        if (!editor) return;
+        const turndownService = new TurndownService({
+          headingStyle: "atx",
+          codeBlockStyle: "fenced",
+        });
+        turndownService.use(gfm);
+        markdownContent = turndownService.turndown(editor.getHTML());
+      };
+
+      update();
+      editor.on('update', update);
+
+      return () => {
+        editor?.off('update', update);
+      };
+    }
   });
 
   async function loadNostrProfile() {
@@ -149,6 +176,7 @@
 />
 
 <main class="page">
+  {#if !isMarkdownView}
   <header class="header">
     <div class="header-left">
         <input 
@@ -188,8 +216,9 @@
         </div>
     </div>
   </header>
+  {/if}
   
-  <section class="editor-container">
+  <section class="editor-container" class:visually-hidden={isMarkdownView}>
     {#key mode}
       <TipTapEditor
         {documentId}
@@ -203,6 +232,11 @@
     {/key}
   </section>
 
+  {#if isMarkdownView}
+    <pre class="markdown-output">{markdownContent || 'Loading...'}</pre>
+  {/if}
+
+  {#if !isMarkdownView}
   <footer class="footer">
       <div class="status-item">
           <strong>Mode:</strong> {mode}
@@ -213,6 +247,7 @@
       </div>
       {/if}
   </footer>
+  {/if}
 </main>
 
 <style>
@@ -380,6 +415,30 @@
   .status-item strong {
       font-weight: 600;
       color: #4b5563;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  .markdown-output {
+    padding: 1rem;
+    white-space: pre-wrap;
+    font-family: monospace;
+    margin: 0;
+    height: 100%;
+    overflow: auto;
+    background-color: white;
+    color: #111827;
+    font-size: 0.875rem;
+    line-height: 1.5;
   }
 
   /* Responsive adjustments */
