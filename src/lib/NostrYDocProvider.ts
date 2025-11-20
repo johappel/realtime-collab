@@ -60,6 +60,10 @@ export class NostrYDocProvider {
   
   private debug: boolean;
 
+  // Observable for external UI
+  public onSnapshot: ((snapshots: Event[]) => void) | null = null;
+  private snapshots: Map<string, Event> = new Map(); // id -> event
+
   constructor(opts: NostrYDocProviderOptions) {
     this.ydoc = opts.ydoc;
     this.documentId = opts.documentId;
@@ -79,9 +83,23 @@ export class NostrYDocProvider {
     // Yjs handles duplicate updates internally anyway.
 
     try {
-        const update = base64ToUint8(event.content);
-        Y.applyUpdate(this.ydoc, update, 'remote');
-        if (this.debug) console.log(`[NostrYDocProvider] Applied update from event ${event.id}`);
+        if (event.kind === 31338) {
+            // Snapshot
+            if (this.debug) console.log(`[NostrYDocProvider] Received snapshot ${event.id} from ${event.pubkey}`);
+            this.snapshots.set(event.pubkey, event); // One snapshot per pubkey (Replaceable)
+            if (this.onSnapshot) {
+                this.onSnapshot(Array.from(this.snapshots.values()));
+            }
+            // Optional: Apply snapshot automatically? 
+            // Usually we only apply if we are initializing or if user requests it.
+            // For now, we just store it for the UI.
+            // To apply: Y.applyUpdate(this.ydoc, base64ToUint8(event.content), 'remote');
+        } else {
+            // Update (9337)
+            const update = base64ToUint8(event.content);
+            Y.applyUpdate(this.ydoc, update, 'remote');
+            if (this.debug) console.log(`[NostrYDocProvider] Applied update from event ${event.id}`);
+        }
     } catch (error) {
         // Warnung statt Error, da es sich oft um alte/ungültige Test-Events handelt (z.B. "debug-content...")
         if (this.debug) console.warn(`[NostrYDocProvider] Skipping invalid event ${event.id}:`, error instanceof Error ? error.message : String(error));
@@ -98,7 +116,7 @@ export class NostrYDocProvider {
             }, this.debug);
             
             relay.sendReq({
-                kinds: [9337],
+                kinds: [9337, 31338],
                 '#d': [this.documentId],
             });
 
@@ -107,6 +125,31 @@ export class NostrYDocProvider {
             console.error(`[NostrYDocProvider] Failed to connect to ${url}`, e);
         }
     }
+  }
+
+  public async saveSnapshot() {
+      const state = Y.encodeStateAsUpdate(this.ydoc);
+      const base64State = uint8ToBase64(state);
+      
+      const event: EventTemplate = {
+          kind: 31338,
+          content: base64State,
+          tags: [['d', this.documentId]],
+          created_at: Math.floor(Date.now() / 1000),
+      };
+      
+      await this.signAndPublish(event);
+      if (this.debug) console.log(`[NostrYDocProvider] Published snapshot kind 31338`);
+  }
+
+  public async applySnapshot(event: Event) {
+      try {
+          const update = base64ToUint8(event.content);
+          Y.applyUpdate(this.ydoc, update, 'remote');
+          if (this.debug) console.log(`[NostrYDocProvider] Applied snapshot ${event.id}`);
+      } catch (e) {
+          console.error("Failed to apply snapshot", e);
+      }
   }
 
   private bindYDocUpdates() {

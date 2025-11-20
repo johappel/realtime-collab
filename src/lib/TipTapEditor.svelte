@@ -27,18 +27,22 @@
     mode = "local",
     onAwarenessReady,
     editor = $bindable(null),
+    provider = $bindable(null),
     maxWidth = 1024,
     title = $bindable(""),
     initialContent = null,
+    onSnapshots,
   } = $props<{
     documentId: string;
     user?: { name: string; color: string };
     mode?: "local" | "nostr";
     onAwarenessReady?: (awareness: Awareness | null) => void;
     editor?: Editor | null;
+    provider?: any;
     maxWidth?: number;
     title?: string;
     initialContent?: string | null;
+    onSnapshots?: (snapshots: any[]) => void;
   }>();
 
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
@@ -94,6 +98,11 @@
           newProvider = result.provider;
           newAwarenessProvider = result.awarenessProvider;
           newPersistence = result.persistence;
+
+          // Bind snapshots
+          if (onSnapshots) {
+              newProvider.onSnapshot = onSnapshots;
+          }
         } else {
           const result = useLocalYDoc(documentId);
           newYdoc = result.ydoc;

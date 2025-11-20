@@ -3,7 +3,9 @@
   import PresenceList from "$lib/PresenceList.svelte";
   import EditorToolbar from "$lib/EditorToolbar.svelte";
   import SettingsDialog from "$lib/SettingsDialog.svelte";
+  import HistorySidebar from "$lib/HistorySidebar.svelte";
   import Settings from "lucide-svelte/icons/settings";
+  import History from "lucide-svelte/icons/history";
   import { page } from "$app/stores";
   import type { Awareness } from "y-protocols/awareness";
   import { getNip07Pubkey, fetchNostrProfile, getRandomColor } from "$lib/nostrUtils";
@@ -11,6 +13,7 @@
   import type { Editor } from "@tiptap/core";
   import TurndownService from "turndown";
   import { gfm } from "turndown-plugin-gfm";
+  import type { Event } from "nostr-tools";
 
   import { untrack } from "svelte";
 
@@ -56,6 +59,7 @@
   let relays: string[] = $state([]);
   
   let showSettings = $state(false);
+  let showHistory = $state(false);
   let maxWidth = $state(1024);
   let settingsButton: HTMLButtonElement | null = $state(null);
   
@@ -63,6 +67,10 @@
 
   // Initialize with documentId. Updates will come via binding from TipTapEditor
   let docTitle = $state(untrack(() => documentId));
+
+  // Snapshots
+  let snapshots: Event[] = $state([]);
+  let provider: any = null;
 
   $effect(() => {
     const storedMode = localStorage.getItem("editor_mode");
@@ -185,6 +193,32 @@
     
     showSettings = false;
   }
+
+  function handleSaveSnapshot() {
+      if (provider && typeof provider.saveSnapshot === 'function') {
+          provider.saveSnapshot().catch(console.error);
+      }
+  }
+
+  function handleLoadSnapshot(snapshot: Event) {
+      // We need to apply the snapshot to the Yjs doc.
+      // Since we don't have direct access to Y.applyUpdate here easily without importing Yjs,
+      // we can rely on the provider to do it if we expose a method, OR we can just reload the page?
+      // Reloading is safest to ensure clean state, but bad UX.
+      // Better: Pass it to TipTapEditor via a prop or method?
+      // Actually, TipTapEditor binds `provider` to us? No, it keeps it internal.
+      // Let's expose `provider` from TipTapEditor.
+      
+      // For now, let's just alert that this feature is experimental or implement it via TipTapEditor binding.
+      // Wait, I can bind `provider` from TipTapEditor!
+      
+      if (provider && typeof provider.applySnapshot === 'function') {
+          provider.applySnapshot(snapshot);
+      } else {
+          // Fallback: Reload page? No.
+          alert("Snapshot laden wird noch nicht unterstützt (Provider nicht bereit).");
+      }
+  }
 </script>
 
 <svelte:head>
@@ -223,6 +257,14 @@
         <div class="controls">
             <button 
                 class="icon-btn" 
+                class:active={showHistory}
+                onclick={() => showHistory = !showHistory} 
+                title="Versionen / Snapshots"
+            >
+                <History size={18} />
+            </button>
+            <button 
+                class="icon-btn" 
                 onclick={() => showSettings = true} 
                 title="Einstellungen"
                 bind:this={settingsButton}
@@ -241,20 +283,32 @@
   </header>
   {/if}
   
-  <section class="editor-container" class:visually-hidden={isMarkdownView}>
-    {#key mode}
-      <TipTapEditor
-        {documentId}
-        {user}
-        {mode}
-        {maxWidth}
-        {initialContent}
-        bind:title={docTitle}
-        onAwarenessReady={handleAwarenessReady}
-        bind:editor={editor}
-      />
-    {/key}
-  </section>
+  <div class="content-wrapper">
+    <section class="editor-container" class:visually-hidden={isMarkdownView}>
+        {#key mode}
+        <TipTapEditor
+            {documentId}
+            {user}
+            {mode}
+            {maxWidth}
+            {initialContent}
+            bind:title={docTitle}
+            onAwarenessReady={handleAwarenessReady}
+            bind:editor={editor}
+            bind:provider={provider}
+            onSnapshots={(s) => snapshots = s}
+        />
+        {/key}
+    </section>
+
+    {#if showHistory && mode === 'nostr'}
+        <HistorySidebar 
+            {snapshots} 
+            onSaveSnapshot={handleSaveSnapshot}
+            onLoadSnapshot={handleLoadSnapshot}
+        />
+    {/if}
+  </div>
 
   {#if isMarkdownView}
     <pre class="markdown-output">{markdownContent || 'Loading...'}</pre>
@@ -285,6 +339,12 @@
     display: flex;
     flex-direction: column;
     background-color: #f9fafb;
+  }
+
+  .content-wrapper {
+      flex-grow: 1;
+      display: flex;
+      overflow: hidden;
   }
 
   .header {
@@ -394,7 +454,7 @@
       border-radius: 0.375rem;
   }
   
-  .icon-btn:hover {
+  .icon-btn:hover, .icon-btn.active {
       background-color: white;
       color: #111827;
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
