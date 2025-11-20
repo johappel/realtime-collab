@@ -95,6 +95,7 @@ new NostrYDocProvider({
    - `@tiptap/extension-collaboration-cursor` v2.26.2 hat peer dependency zu `@tiptap/core@^2.x`
    - Aktuell wird `@tiptap/core@3.10.8` verwendet
    - Funktioniert trotzdem, aber Warning vorhanden
+   - **Update 20.11.2025**: Version auf `3.0.0-next.6` aktualisiert, um Kompatibilitätsprobleme zu beheben.
 
 2. **Browser-Extension erforderlich für Nostr-Modus**:
    - Nutzer müssen eine NIP-07 Extension installieren (z.B. Alby, nos2x)
@@ -104,11 +105,14 @@ new NostrYDocProvider({
    - Aktuell ist `ws://localhost:7000` als Default konfiguriert.
    - Für Production muss dies auf öffentliche Relays geändert werden.
 
+4. **Race Conditions beim Profil-Laden**:
+   - Wurde durch `untrack` und strikte Cleanup-Reihenfolge im `TipTapEditor` behoben.
+
 ## Projektmetriken
 
 - **Implementierte MVPs**: 3/3
 - **Core Files**: 11
-- **Lines of Code**: ~1600
+- **Lines of Code**: ~1650
 - **Dependencies**: 12 production, 18 dev
 
 ## Dokumentation
@@ -123,4 +127,4 @@ Alle Spezifikationen sind aktualisiert:
 
 ## Fazit
 
-Das Projekt hat alle geplanten MVPs erfolgreich abgeschlossen. Der Editor nutzt nun `kind: 9337` für persistente Updates und eine robuste `NativeRelay`-Implementierung, um Browser-Kompatibilitätsprobleme zu umgehen. Die Entwicklungsumgebung ist auf ein lokales Relay (`ws://localhost:7000`) optimiert.
+Das Projekt hat alle geplanten MVPs erfolgreich abgeschlossen. Der Editor ist stabil, unterstützt Echtzeit-Kollaboration und Presence-Features (Cursor, Typing-Indicator). Kritische Bugs (Race Conditions, Version Mismatches) wurden behoben.

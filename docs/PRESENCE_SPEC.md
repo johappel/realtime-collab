@@ -89,7 +89,8 @@ class NostrAwarenessProvider {
 - **Nostr → Awareness**
   - Subscribe-Filter: `{ kinds: [31339], '#d': [documentId] }`.
   - `content` = JSON → Awareness-State für `clientId` setzen.
-  - Eigene Events (z. B. über `pubkey`) können gefiltert werden, um Feedback-Schleifen zu vermeiden.
+  - **Wichtig:** Events, die älter als 30 Sekunden sind, sollten ignoriert werden, um "Geister"-User aus vorherigen Sessions zu vermeiden.
+  - Eigene Events (z. B. über `clientId`) müssen gefiltert werden, um Feedback-Schleifen zu vermeiden.
 
 - **Timeout/GC**
   - Falls ein Client längere Zeit keine Updates sendet, sollte dessen Präsenz nach einem Timeout entfernt werden (Yjs Awareness bietet dafür Mechanismen).
@@ -109,14 +110,16 @@ CollaborationCursor.configure({
 
 - `user`: enthält mind. `name` und `color`.
 - Awareness-Objekt versorgt die Extension mit den Cursorpositionen anderer Clients.
+- **Styling:** CSS-Klassen `.collaboration-cursor__caret` und `.collaboration-cursor__label` müssen implementiert werden, um Cursor und Namens-Badges anzuzeigen.
 
 ---
 
 ## 6. UX-Aspekte
 
-- Cursors anderer Benutzer sollten farbig hervorgehoben werden.
-- Name des jeweiligen Users wird am Cursor angezeigt (z. B. Label-Badge).
-- Presence-Liste (z. B. Avatare oder Initialen) kann zusätzlich angezeigt werden.
+- Cursors anderer Benutzer werden farbig hervorgehoben.
+- Name des jeweiligen Users wird am Cursor angezeigt (Bubble/Fähnchen).
+- Presence-Liste zeigt aktive Nutzer als Avatare.
+- **Typing Indicator:** Avatare in der Presence-Liste pulsieren kurz, wenn Updates vom entsprechenden User empfangen werden.
 
 ---
 
