@@ -19,6 +19,7 @@ export function useNostrYDoc(
   myPubkey: string,
   signAndPublish: (evt: EventTemplate) => Promise<void>,
   debug: boolean = false,
+  relays?: string[],
 ): UseNostrYDocResult {
   const ydoc = new Y.Doc();
   const yXmlFragment = ydoc.getXmlFragment('prosemirror');
@@ -33,6 +34,7 @@ export function useNostrYDoc(
     myPubkey,
     signAndPublish,
     debug,
+    relays,
   });
 
   const awarenessProvider = new NostrAwarenessProvider({
@@ -40,6 +42,7 @@ export function useNostrYDoc(
     documentId,
     myPubkey,
     signAndPublish,
+    relays,
   });
 
   return { ydoc, yXmlFragment, provider, awareness, awarenessProvider, persistence };

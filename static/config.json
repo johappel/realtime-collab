@@ -1,0 +1,10 @@
+{
+  "docRelays": [
+    "ws://localhost:7000"
+  ],
+  "profileRelays": [
+    "wss://relay.damus.io",
+    "wss://relay.primal.net",
+    "ws://localhost:7000"
+  ]
+}

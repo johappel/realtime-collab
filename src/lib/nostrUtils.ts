@@ -65,6 +65,42 @@ export async function getNip07Pubkey(): Promise<string> {
     return window.nostr.getPublicKey();
 }
 
+export async function fetchNostrProfile(pubkey: string, relays: string[] = ['ws://localhost:7000']): Promise<{ name?: string, picture?: string, about?: string } | null> {
+    return new Promise((resolve) => {
+        let resolved = false;
+        
+        // Wir nutzen hier unsere NativeRelay-Klasse, da sie zuverlässiger im Browser funktioniert
+        const relay = new NativeRelay(relays[0], (event) => {
+            if (resolved) return;
+            try {
+                const content = JSON.parse(event.content);
+                resolved = true;
+                relay.close();
+                resolve(content);
+            } catch (e) {
+                console.error('Failed to parse profile content', e);
+            }
+        });
+
+        // Wir warten kurz bis die Verbindung steht (NativeRelay sendet REQ erst bei open)
+        // und senden dann den Request
+        relay.sendReq({
+            kinds: [0],
+            authors: [pubkey],
+            limit: 1
+        });
+
+        // Timeout nach 2 Sekunden
+        setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                relay.close();
+                resolve(null);
+            }
+        }, 2000);
+    });
+}
+
 // Minimal Native Relay Implementation to bypass library issues
 export class NativeRelay {
     private ws: WebSocket;

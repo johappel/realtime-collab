@@ -6,6 +6,7 @@
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
   import { getNip07Pubkey, signAndPublishNip07 } from "./nostrUtils";
+  import { loadConfig } from "./config";
   import * as Y from "yjs";
   import { Awareness } from "y-protocols/awareness";
   import Bold from "lucide-svelte/icons/bold";
@@ -65,14 +66,18 @@
 
         if (mode === "nostr") {
           const pubkey = await getNip07Pubkey();
+          const config = await loadConfig();
           if (cancelled) return;
           // Hier initialisieren wir den Nostr-Provider.
           // useNostrYDoc erstellt intern eine Y.Doc Instanz und verbindet sie via NostrYDocProvider mit den Relays.
           // Der dritte Parameter ist die Callback-Funktion zum Signieren und Publizieren von Events.
           // Der vierte Parameter aktiviert den Debug-Modus (true = Logs anzeigen).
-          const result = useNostrYDoc(documentId, pubkey, (evt) =>
-            signAndPublishNip07(evt),
-            false // Debug-Modus aus (Production)
+          const result = useNostrYDoc(
+            documentId,
+            pubkey,
+            (evt) => signAndPublishNip07(evt, config.docRelays),
+            false, // Debug-Modus aus (Production)
+            config.docRelays
           );
           newYdoc = result.ydoc;
           newAwareness = result.awareness;

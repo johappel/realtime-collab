@@ -59,10 +59,16 @@
         <div class="presence-avatars">
             {#each users as user (user.id)}
                 <div
-                    class="avatar"
+                     class="avatar"
                     style="background-color: {user.color}"
                     title={user.name}
                 >
+                    <!-- 
+                        Hier werden die Initialen generiert.
+                        Aktuell nehmen wir einfach die ersten zwei Buchstaben des Namens.
+                        Da der Default-Name "TestUser" ist (siehe routes/editor/[id]/+page.svelte),
+                        erscheint hier "TE".
+                    -->
                     {user.name.slice(0, 2).toUpperCase()}
                 </div>
             {/each}

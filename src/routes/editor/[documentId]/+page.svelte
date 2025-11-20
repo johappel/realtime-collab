@@ -3,11 +3,16 @@
   import PresenceList from "$lib/PresenceList.svelte";
   import { page } from "$app/stores";
   import type { Awareness } from "y-protocols/awareness";
+  import { getNip07Pubkey, fetchNostrProfile } from "$lib/nostrUtils";
+  import { loadConfig } from "$lib/config";
 
   const pageStore = $state($page);
 
   const documentId = $derived(pageStore.params.documentId ?? "default");
 
+  // Hier wird der aktuelle User definiert.
+  // Momentan ist dies hardcodiert auf "TestUser".
+  // Später könnte hier ein echter Login oder eine Eingabeaufforderung stehen.
   const user = $state({
     name: "TestUser",
     color: "#0ea5e9",
@@ -15,6 +20,28 @@
 
   let mode: "local" | "nostr" = $state("local");
   let awareness: Awareness | null = $state(null);
+
+  $effect(() => {
+    if (mode === "nostr") {
+      loadNostrProfile();
+    }
+  });
+
+  async function loadNostrProfile() {
+    try {
+      const config = await loadConfig();
+      const pubkey = await getNip07Pubkey();
+      const profile = await fetchNostrProfile(pubkey, config.profileRelays);
+
+      if (profile && profile.name) {
+        user.name = profile.name;
+      } else {
+        user.name = "NostrUser";
+      }
+    } catch (e) {
+      console.error("Failed to load Nostr profile", e);
+    }
+  }
 
   // Callback to receive awareness from TipTapEditor
   function handleAwarenessReady(aw: Awareness | null) {
