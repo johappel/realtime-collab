@@ -11,34 +11,24 @@
   import * as Y from "yjs";
   import { Awareness } from "y-protocols/awareness";
   import { untrack } from "svelte";
-  import Bold from "lucide-svelte/icons/bold";
-  import Italic from "lucide-svelte/icons/italic";
-  import Undo2 from "lucide-svelte/icons/undo-2";
-  import Redo2 from "lucide-svelte/icons/redo-2";
-  import Heading1 from "lucide-svelte/icons/heading-1";
-  import Heading2 from "lucide-svelte/icons/heading-2";
-  import Quote from "lucide-svelte/icons/quote";
-  import List from "lucide-svelte/icons/list";
-  import ListOrdered from "lucide-svelte/icons/list-ordered";
-  import Code from "lucide-svelte/icons/code";
-  import SquareCode from "lucide-svelte/icons/square-code";
 
-  const {
+  let {
     documentId,
     user,
     mode = "local",
     onAwarenessReady,
+    editor = $bindable(null),
   } = $props<{
     documentId: string;
     user?: { name: string; color: string };
     mode?: "local" | "nostr";
     onAwarenessReady?: (awareness: Awareness | null) => void;
+    editor?: Editor | null;
   }>();
 
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
   const editorUser = user ?? defaultUser;
 
-  let editor: Editor | null = $state(null);
   let editorElement: HTMLDivElement | null = null;
   let ydoc: Y.Doc | null = $state(null);
   let awareness: Awareness | null = $state(null);
@@ -228,168 +218,27 @@
       </button>
     </div>
   {/if}
-  <div class="toolbar">
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Undo"
-      title="Undo"
-      onclick={() => editor?.chain().focus().undo().run()}
-      disabled={!editor || !editor.can().undo()}
-    >
-      <Undo2 size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Redo"
-      title="Redo"
-      onclick={() => editor?.chain().focus().redo().run()}
-      disabled={!editor || !editor.can().redo()}
-    >
-      <Redo2 size={18} />
-    </button>
-    <span class="toolbar-separator" aria-hidden="true"></span>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Bold"
-      title="Bold"
-      onclick={() => editor?.chain().focus().toggleBold().run()}
-      disabled={!editor}
-    >
-      <Bold size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Italic"
-      title="Italic"
-      onclick={() => editor?.chain().focus().toggleItalic().run()}
-      disabled={!editor}
-    >
-      <Italic size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Inline code"
-      title="Inline code"
-      onclick={() => editor?.chain().focus().toggleCode().run()}
-      disabled={!editor}
-    >
-      <Code size={18} />
-    </button>
-    <span class="toolbar-separator" aria-hidden="true"></span>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Heading 1"
-      title="Heading 1"
-      onclick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-      disabled={!editor}
-    >
-      <Heading1 size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Heading 2"
-      title="Heading 2"
-      onclick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-      disabled={!editor}
-    >
-      <Heading2 size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Blockquote"
-      title="Blockquote"
-      onclick={() => editor?.chain().focus().toggleBlockquote().run()}
-      disabled={!editor}
-    >
-      <Quote size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Bullet list"
-      title="Bullet list"
-      onclick={() => editor?.chain().focus().toggleBulletList().run()}
-      disabled={!editor}
-    >
-      <List size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Ordered list"
-      title="Ordered list"
-      onclick={() => editor?.chain().focus().toggleOrderedList().run()}
-      disabled={!editor}
-    >
-      <ListOrdered size={18} />
-    </button>
-    <button
-      type="button"
-      class="toolbar-button"
-      aria-label="Code block"
-      title="Code block"
-      onclick={() => editor?.chain().focus().toggleCodeBlock().run()}
-      disabled={!editor}
-    >
-      <SquareCode size={18} />
-    </button>
-  </div>
   <div class="editor-content" bind:this={editorElement}></div>
 </div>
 
 <style>
   .editor {
     position: relative;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    background-color: white;
-  }
-
-  .toolbar {
+    height: 100%;
     display: flex;
-    gap: 0.25rem;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
-    background-color: #f9fafb;
-  }
-
-  .toolbar-button {
-    font-size: 0.875rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    border: 1px solid #e5e7eb;
-    background-color: white;
-    cursor: pointer;
-  }
-
-  .toolbar-button:hover:not(:disabled) {
-    background-color: #f3f4f6;
-  }
-
-  .toolbar-button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .editor:focus-within {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
+    flex-direction: column;
   }
 
   .editor-content {
-    padding: 0.75rem 0.75rem 1rem;
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    cursor: text;
   }
 
+  /* Make the editor content take full height */
   :global(.editor .tiptap) {
-    min-height: 16rem;
+    min-height: 100%;
     outline: none;
     font-size: 1rem;
     line-height: 1.5;
