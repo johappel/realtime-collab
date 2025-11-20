@@ -13,6 +13,15 @@
   import SquareCode from "lucide-svelte/icons/square-code";
   import Baseline from "lucide-svelte/icons/baseline";
   import Highlighter from "lucide-svelte/icons/highlighter";
+  import Table from "lucide-svelte/icons/table";
+  import Trash2 from "lucide-svelte/icons/trash-2";
+  import Split from "lucide-svelte/icons/split";
+  import Merge from "lucide-svelte/icons/merge";
+  import ArrowDown from "lucide-svelte/icons/arrow-down";
+  import ArrowRight from "lucide-svelte/icons/arrow-right";
+  import ArrowUp from "lucide-svelte/icons/arrow-up";
+  import ArrowLeft from "lucide-svelte/icons/arrow-left";
+  import Delete from "lucide-svelte/icons/delete";
 
   let { editor } = $props<{ editor: Editor | null }>();
 
@@ -61,6 +70,10 @@
       editor?.chain().focus().toggleHighlight({ color }).run();
     }
     showHighlightPalette = false;
+  }
+
+  function addTable() {
+    editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   }
 </script>
 
@@ -240,6 +253,106 @@
       </div>
     {/if}
   </div>
+
+  <span class="toolbar-separator" aria-hidden="true"></span>
+
+  <button
+    type="button"
+    class="toolbar-button"
+    aria-label="Insert Table"
+    title="Insert Table"
+    onclick={addTable}
+    disabled={!editor || editor.isActive('table')}
+  >
+    <Table size={18} />
+  </button>
+
+  {#if editor && editor.isActive('table')}
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Delete Table"
+      title="Delete Table"
+      onclick={() => editor?.chain().focus().deleteTable().run()}
+    >
+      <Trash2 size={18} />
+    </button>
+    <span class="toolbar-separator" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Add Column Before"
+      title="Add Column Before"
+      onclick={() => editor?.chain().focus().addColumnBefore().run()}
+    >
+      <ArrowLeft size={18} />
+    </button>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Add Column After"
+      title="Add Column After"
+      onclick={() => editor?.chain().focus().addColumnAfter().run()}
+    >
+      <ArrowRight size={18} />
+    </button>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Delete Column"
+      title="Delete Column"
+      onclick={() => editor?.chain().focus().deleteColumn().run()}
+    >
+      <Delete size={18} />
+    </button>
+    <span class="toolbar-separator" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Add Row Before"
+      title="Add Row Before"
+      onclick={() => editor?.chain().focus().addRowBefore().run()}
+    >
+      <ArrowUp size={18} />
+    </button>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Add Row After"
+      title="Add Row After"
+      onclick={() => editor?.chain().focus().addRowAfter().run()}
+    >
+      <ArrowDown size={18} />
+    </button>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Delete Row"
+      title="Delete Row"
+      onclick={() => editor?.chain().focus().deleteRow().run()}
+    >
+      <Delete size={18} />
+    </button>
+    <span class="toolbar-separator" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Merge Cells"
+      title="Merge Cells"
+      onclick={() => editor?.chain().focus().mergeCells().run()}
+    >
+      <Merge size={18} />
+    </button>
+    <button
+      type="button"
+      class="toolbar-button"
+      aria-label="Split Cell"
+      title="Split Cell"
+      onclick={() => editor?.chain().focus().splitCell().run()}
+    >
+      <Split size={18} />
+    </button>
+  {/if}
 </div>
 
 <style>

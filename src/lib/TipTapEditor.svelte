@@ -6,6 +6,11 @@
   import { TextStyle } from "@tiptap/extension-text-style";
   import { Color } from "@tiptap/extension-color";
   import { Highlight } from "@tiptap/extension-highlight";
+  import { Table } from "@tiptap/extension-table";
+  import { TableCell } from "@tiptap/extension-table-cell";
+  import { TableHeader } from "@tiptap/extension-table-header";
+  import { TableRow } from "@tiptap/extension-table-row";
+  import BubbleMenu from "@tiptap/extension-bubble-menu";
   import "./tiptap.css";
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
@@ -36,7 +41,8 @@
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
   const editorUser = user ?? defaultUser;
 
-  let editorElement: HTMLDivElement | null = null;
+  let editorElement: HTMLDivElement | null = $state(null);
+  let bubbleMenuElement: HTMLDivElement | null = $state(null);
   let ydoc: Y.Doc | null = $state(null);
   let awareness: Awareness | null = $state(null);
   let provider: any = null;
@@ -222,7 +228,7 @@
   });
 
   $effect(() => {
-    if (!editorElement || !ydoc || !awareness) return;
+    if (!editorElement || !bubbleMenuElement || !ydoc || !awareness) return;
 
     // Re-create editor when user changes to ensure consistent state
     // This avoids "mismatched transaction" errors that can occur when updating
@@ -238,6 +244,19 @@
         TextStyle,
         Color,
         Highlight.configure({ multicolor: true }),
+        Table.configure({
+          resizable: true,
+        }),
+        TableRow,
+        TableHeader,
+        TableCell,
+        BubbleMenu.configure({
+          element: bubbleMenuElement,
+          shouldShow: ({ editor }) => {
+            // Show only for tables
+            return editor.isActive("table");
+          },
+        }),
         Collaboration.configure({
           document: ydoc,
           field: "prosemirror",
@@ -286,6 +305,51 @@
     </div>
   {/if}
   <div class="editor-content" bind:this={editorElement}></div>
+  
+  <div class="bubble-menu" bind:this={bubbleMenuElement}>
+    {#if editor}
+      <button
+        onclick={() => editor?.chain().focus().addColumnBefore().run()}
+        title="Add Column Before"
+      >Col ←</button>
+      <button
+        onclick={() => editor?.chain().focus().addColumnAfter().run()}
+        title="Add Column After"
+      >Col →</button>
+      <button
+        onclick={() => editor?.chain().focus().deleteColumn().run()}
+        title="Delete Column"
+      >Del Col</button>
+      <span class="separator">|</span>
+      <button
+        onclick={() => editor?.chain().focus().addRowBefore().run()}
+        title="Add Row Before"
+      >Row ↑</button>
+      <button
+        onclick={() => editor?.chain().focus().addRowAfter().run()}
+        title="Add Row After"
+      >Row ↓</button>
+      <button
+        onclick={() => editor?.chain().focus().deleteRow().run()}
+        title="Delete Row"
+      >Del Row</button>
+      <span class="separator">|</span>
+      <button
+        onclick={() => editor?.chain().focus().mergeCells().run()}
+        title="Merge Cells"
+      >Merge</button>
+      <button
+        onclick={() => editor?.chain().focus().splitCell().run()}
+        title="Split Cell"
+      >Split</button>
+      <span class="separator">|</span>
+      <button
+        onclick={() => editor?.chain().focus().deleteTable().run()}
+        title="Delete Table"
+        class="danger"
+      >Delete Table</button>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -382,5 +446,47 @@
 
   .retry-button:hover {
     background-color: #7f1d1d;
+  }
+
+  .bubble-menu {
+    display: flex;
+    background-color: white;
+    padding: 0.2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e5e7eb;
+    gap: 0.25rem;
+    align-items: center;
+  }
+
+  .bubble-menu button {
+    border: none;
+    background: none;
+    color: #374151;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .bubble-menu button:hover {
+    background-color: #f3f4f6;
+    color: #111827;
+  }
+
+  .bubble-menu button.danger {
+    color: #ef4444;
+  }
+
+  .bubble-menu button.danger:hover {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+
+  .bubble-menu .separator {
+    color: #e5e7eb;
+    margin: 0 0.25rem;
   }
 </style>
