@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
+import { IndexeddbPersistence } from 'y-indexeddb';
 import type { EventTemplate } from 'nostr-tools';
 import { NostrYDocProvider } from './NostrYDocProvider';
 import { NostrAwarenessProvider } from './NostrAwarenessProvider';
@@ -10,6 +11,7 @@ export interface UseNostrYDocResult {
   provider: NostrYDocProvider;
   awareness: Awareness;
   awarenessProvider: NostrAwarenessProvider;
+  persistence: IndexeddbPersistence;
 }
 
 export function useNostrYDoc(
@@ -21,6 +23,9 @@ export function useNostrYDoc(
   const ydoc = new Y.Doc();
   const yXmlFragment = ydoc.getXmlFragment('prosemirror');
   const awareness = new Awareness(ydoc);
+
+  // Persistenz via IndexedDB (Offline-Support)
+  const persistence = new IndexeddbPersistence(documentId, ydoc);
 
   const provider = new NostrYDocProvider({
     ydoc,
@@ -37,5 +42,5 @@ export function useNostrYDoc(
     signAndPublish,
   });
 
-  return { ydoc, yXmlFragment, provider, awareness, awarenessProvider };
+  return { ydoc, yXmlFragment, provider, awareness, awarenessProvider, persistence };
 }

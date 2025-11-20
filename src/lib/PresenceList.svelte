@@ -8,22 +8,37 @@
     }>();
 
     // Derive active users from awareness
-    const users = $derived.by(() => {
-        if (!awareness) return [];
+    let users = $state<Array<{ id: number; name: string; color: string }>>([]);
 
-        const activeUsers: Array<{ id: number; name: string; color: string }> =
-            [];
-        awareness.getStates().forEach((state: any, clientId: number) => {
-            if (state.user) {
-                activeUsers.push({
-                    id: clientId,
-                    name: state.user.name || "Anonym",
-                    color: state.user.color || "#999",
-                });
-            }
-        });
+    $effect(() => {
+        if (!awareness) {
+            users = [];
+            return;
+        }
 
-        return activeUsers;
+        const updateUsers = () => {
+            const activeUsers: Array<{ id: number; name: string; color: string }> = [];
+            awareness.getStates().forEach((state: any, clientId: number) => {
+                if (state.user) {
+                    activeUsers.push({
+                        id: clientId,
+                        name: state.user.name || "Anonym",
+                        color: state.user.color || "#999",
+                    });
+                }
+            });
+            users = activeUsers;
+        };
+
+        // Initial update
+        updateUsers();
+
+        // Listen for changes
+        awareness.on('change', updateUsers);
+        
+        return () => {
+            awareness.off('change', updateUsers);
+        };
     });
 </script>
 

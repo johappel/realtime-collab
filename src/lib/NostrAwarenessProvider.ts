@@ -1,9 +1,12 @@
 import { Awareness } from 'y-protocols/awareness';
-import { SimplePool, type EventTemplate, type Event } from 'nostr-tools';
+import type { EventTemplate, Event } from 'nostr-tools';
+import { NativeRelay } from './nostrUtils';
 
 const DEFAULT_RELAYS = [
   'ws://localhost:7000',
-];export interface NostrAwarenessProviderOptions {
+];
+
+export interface NostrAwarenessProviderOptions {
     awareness: Awareness;
     documentId: string;
     relays?: string[];
@@ -11,14 +14,9 @@ const DEFAULT_RELAYS = [
     signAndPublish: (event: EventTemplate) => Promise<void>;
 }
 
-type SubCloser = {
-    close: (reason?: string) => void;
-};
-
 export class NostrAwarenessProvider {
-    private pool: SimplePool;
+    private activeRelays: NativeRelay[] = [];
     private relays: string[];
-    private sub: SubCloser | null = null;
     private awareness: Awareness;
     private documentId: string;
     private myPubkey: string;
@@ -32,44 +30,50 @@ export class NostrAwarenessProvider {
         this.myPubkey = opts.myPubkey;
         this.signAndPublish = opts.signAndPublish;
 
-        this.pool = new SimplePool();
-
         this.subscribe();
         this.bindAwarenessUpdates();
     }
 
     private subscribe() {
-        this.sub = this.pool.subscribeMany(
-            this.relays,
-            {
-                kinds: [31339],
-                '#d': [this.documentId],
-            },
-            {
-                onevent: (event: Event) => {
-                    try {
-                        if (event.pubkey === this.myPubkey) return;
+        for (const url of this.relays) {
+            try {
+                const relay = new NativeRelay(url, (event) => {
+                    this.handleEvent(event);
+                });
+                
+                relay.sendReq({
+                    kinds: [31339],
+                    '#d': [this.documentId],
+                });
 
-                        const content = JSON.parse(event.content);
-                        const { clientId, state } = content;
+                this.activeRelays.push(relay);
+            } catch (e) {
+                console.error(`[NostrAwarenessProvider] Failed to connect to ${url}`, e);
+            }
+        }
+    }
 
-                        if (clientId && state) {
-                            const current = this.awareness.states.get(clientId);
-                            if (JSON.stringify(current) !== JSON.stringify(state)) {
-                                this.awareness.states.set(clientId, state);
-                                this.awareness.emit('change', [{
-                                    added: current ? [] : [clientId],
-                                    updated: current ? [clientId] : [],
-                                    removed: []
-                                }, 'remote']);
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Failed to process awareness event', error);
-                    }
-                },
-            },
-        );
+    private handleEvent(event: Event) {
+        try {
+            if (event.pubkey === this.myPubkey) return;
+
+            const content = JSON.parse(event.content);
+            const { clientId, state } = content;
+
+            if (clientId && state) {
+                const current = this.awareness.states.get(clientId);
+                if (JSON.stringify(current) !== JSON.stringify(state)) {
+                    this.awareness.states.set(clientId, state);
+                    this.awareness.emit('change', [{
+                        added: current ? [] : [clientId],
+                        updated: current ? [clientId] : [],
+                        removed: []
+                    }, 'remote']);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to process awareness event', error);
+        }
     }
 
     private bindAwarenessUpdates() {
@@ -110,9 +114,8 @@ export class NostrAwarenessProvider {
     }
 
     destroy() {
-        this.sub?.close('teardown');
-        this.sub = null;
-        this.pool.close(this.relays);
+        this.activeRelays.forEach(r => r.close());
+        this.activeRelays = [];
         this.awareness.setLocalState(null);
     }
 }

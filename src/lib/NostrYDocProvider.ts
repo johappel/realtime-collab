@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import type { EventTemplate, Event } from 'nostr-tools';
+import { NativeRelay } from './nostrUtils';
 
 const DEFAULT_RELAYS = [
   'ws://localhost:7000',
@@ -25,77 +26,6 @@ export interface NostrYDocProviderOptions {
   myPubkey: string;
   signAndPublish: (event: EventTemplate) => Promise<void>;
   debug?: boolean;
-}
-
-// Minimal Native Relay Implementation to bypass library issues
-class NativeRelay {
-    private ws: WebSocket;
-    private url: string;
-    private subId: string;
-    private onEvent: (event: Event) => void;
-    private debug: boolean;
-
-    constructor(url: string, onEvent: (event: Event) => void, debug: boolean = false) {
-        this.url = url;
-        this.onEvent = onEvent;
-        this.debug = debug;
-        this.subId = 'sub-' + Math.random().toString(36).substring(2);
-        this.ws = new WebSocket(url);
-        
-        this.ws.onopen = () => {
-            if (this.debug) console.log(`[NativeRelay] Connected to ${url}`);
-            this.subscribe();
-        };
-
-        this.ws.onmessage = (msg) => {
-            try {
-                const data = JSON.parse(msg.data);
-                if (!Array.isArray(data)) return;
-                
-                const [type, subId, payload] = data;
-                
-                if (type === 'EVENT' && subId === this.subId) {
-                    if (this.debug) console.log(`[NativeRelay] Received EVENT from ${url}`, payload.id);
-                    this.onEvent(payload as Event);
-                } else if (type === 'EOSE' && subId === this.subId) {
-                    if (this.debug) console.log(`[NativeRelay] EOSE from ${url}`);
-                } else if (type === 'NOTICE') {
-                    console.warn(`[NativeRelay] NOTICE from ${url}:`, subId); // subId is message here
-                }
-            } catch (e) {
-                console.error(`[NativeRelay] Failed to parse message from ${url}`, e);
-            }
-        };
-
-        this.ws.onerror = (err) => console.error(`[NativeRelay] Error on ${url}`, err);
-        this.ws.onclose = () => {
-            if (this.debug) console.log(`[NativeRelay] Closed connection to ${url}`);
-        };
-    }
-
-    public subscribe(filter?: any) {
-        if (this.ws.readyState !== WebSocket.OPEN) return;
-        
-        // Default filter if not provided (can be passed in constructor later if needed)
-        // But here we hardcode it for the provider context
-        // We need to access documentId, but this class is generic-ish.
-        // Let's just expose a method to send REQ.
-    }
-
-    public sendReq(filter: any) {
-        if (this.ws.readyState !== WebSocket.OPEN) {
-            // Retry once connected
-            this.ws.addEventListener('open', () => this.sendReq(filter), { once: true });
-            return;
-        }
-        const req = ["REQ", this.subId, filter];
-        if (this.debug) console.log(`[NativeRelay] Sending REQ to ${this.url}`, req);
-        this.ws.send(JSON.stringify(req));
-    }
-
-    public close() {
-        this.ws.close();
-    }
 }
 
 export class NostrYDocProvider {

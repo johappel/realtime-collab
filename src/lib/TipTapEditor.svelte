@@ -40,6 +40,7 @@
   let ydoc: Y.Doc | null = $state(null);
   let awareness: Awareness | null = $state(null);
   let provider: any = null;
+  let persistence: any = null;
   let error: string | null = $state(null);
   let loading: boolean = $state(false);
 
@@ -60,6 +61,7 @@
         let newYdoc: Y.Doc;
         let newAwareness: Awareness;
         let newProvider: any = null;
+        let newPersistence: any = null;
 
         if (mode === "nostr") {
           const pubkey = await getNip07Pubkey();
@@ -75,10 +77,12 @@
           newYdoc = result.ydoc;
           newAwareness = result.awareness;
           newProvider = result.provider;
+          newPersistence = result.persistence;
         } else {
           const result = useLocalYDoc(documentId);
           newYdoc = result.ydoc;
           newAwareness = result.awareness;
+          newPersistence = result.persistence;
         }
 
         if (cancelled) {
@@ -86,12 +90,16 @@
           if (newProvider && typeof newProvider.destroy === "function") {
             newProvider.destroy();
           }
+          if (newPersistence && typeof newPersistence.destroy === "function") {
+            newPersistence.destroy();
+          }
           return;
         }
 
         ydoc = newYdoc;
         awareness = newAwareness;
         provider = newProvider;
+        persistence = newPersistence;
       } catch (e) {
         console.error("Failed to initialize editor:", e);
         error = e instanceof Error ? e.message : String(e);
@@ -109,12 +117,16 @@
       if (provider && typeof provider.destroy === "function") {
         provider.destroy();
       }
+      if (persistence && typeof persistence.destroy === "function") {
+        persistence.destroy();
+      }
       if (ydoc) {
         ydoc.destroy();
       }
       ydoc = null;
       awareness = null;
       provider = null;
+      persistence = null;
       loading = false;
     };
   });
