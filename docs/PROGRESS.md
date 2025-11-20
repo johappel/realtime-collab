@@ -1,8 +1,8 @@
 # Projekt-Fortschritt - Realtime Collaborative Editor
 
-## Letzte Aktualisierung: 19.11.2025
+## Letzte Aktualisierung: 20.11.2025
 
-### Status: MVP 3 abgeschlossen ✅
+### Status: MVP 3 abgeschlossen ✅ + UI/UX Verbesserungen
 
 ## Abgeschlossene Meilensteine
 
@@ -34,6 +34,20 @@
 - Awareness-State wird über Nostr synchronisiert
 - Farbcodierte Cursor und User-Avatare
 
+### ✅ UI/UX & Feature Updates (20.11.2025)
+- **Layout Overhaul**:
+  - Header fixiert, Editor nimmt volle Höhe ein (100vh).
+  - 3-Spalten-Grid im Header für bessere Platzaufteilung.
+  - Toolbar in eigene Komponente `EditorToolbar.svelte` ausgelagert.
+- **Settings Dialog**:
+  - Neue Komponente `SettingsDialog.svelte` für Editor-Einstellungen.
+  - Konfigurierbare maximale Breite (Max-Width).
+  - Download-Optionen (HTML, Doc, Markdown-Stub).
+- **Dokument-Titel**:
+  - Titel kann nun unabhängig vom URL-Slug bearbeitet werden.
+  - Synchronisation des Titels über Yjs Metadata (`ydoc.getMap("metadata")`).
+  - **Bugfix**: Reaktivitäts-Problem (Input Locking) durch `untrack` in Svelte 5 Runes behoben.
+
 ## Implementierte Komponenten
 
 ### Core Libraries
@@ -44,10 +58,12 @@
 - ✅ `src/lib/nostrUtils.ts` - NIP-07 Integration & NativeRelay Shared Class
 
 ### UI Komponenten
-- ✅ `src/lib/TipTapEditor.svelte` - Haupt-Editor mit Mode-Switching
+- ✅ `src/lib/TipTapEditor.svelte` - Haupt-Editor mit Mode-Switching und Metadata-Sync
 - ✅ `src/lib/PresenceList.svelte` - User-Presence-Anzeige
+- ✅ `src/lib/EditorToolbar.svelte` - Ausgelagerte Toolbar
+- ✅ `src/lib/SettingsDialog.svelte` - Einstellungen & Export
 - ✅ `src/routes/editor/+page.svelte` - Document-Auswahl
-- ✅ `src/routes/editor/[documentId]/+page.svelte` - Editor-Seite
+- ✅ `src/routes/editor/[documentId]/+page.svelte` - Editor-Seite mit neuem Layout
 
 ## Nächste Schritte (Optional - Phase 4)
 

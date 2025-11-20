@@ -9,6 +9,7 @@
   import { getNip07Pubkey, fetchNostrProfile, getRandomColor } from "$lib/nostrUtils";
   import { loadConfig } from "$lib/config";
   import type { Editor } from "@tiptap/core";
+  import TurndownService from "turndown";
 
   import { untrack } from "svelte";
 
@@ -110,17 +111,9 @@
       mimeType = "application/msword";
       extension = "doc";
     } else if (format === "markdown") {
-      // Basic HTML to Markdown conversion (simplified)
-      // Ideally use a library like turndown, but for now we can try to use text or basic replacement
-      // Since we don't have a markdown serializer installed, we'll warn or do a best effort
-      // For now, let's just dump the text content or use a very simple regex replacer if needed.
-      // Actually, let's just use the text content for now to avoid adding heavy deps without permission
-      // Or better: use editor.getText() but that loses formatting.
-      // Let's try to do a very basic conversion.
-      
-      // NOTE: For a real app, install 'turndown' or 'tiptap-markdown'
-      content = editor.getText(); 
-      alert("Markdown export requires 'tiptap-markdown' or 'turndown'. Exporting plain text for now.");
+      // Basic HTML to Markdown conversion using turndown
+      const turndownService = new TurndownService();
+      content = turndownService.turndown(editor.getHTML());
       mimeType = "text/markdown";
       extension = "md";
     }
