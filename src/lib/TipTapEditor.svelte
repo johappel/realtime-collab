@@ -18,12 +18,14 @@
     mode = "local",
     onAwarenessReady,
     editor = $bindable(null),
+    maxWidth = 1024,
   } = $props<{
     documentId: string;
     user?: { name: string; color: string };
     mode?: "local" | "nostr";
     onAwarenessReady?: (awareness: Awareness | null) => void;
     editor?: Editor | null;
+    maxWidth?: number;
   }>();
 
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
@@ -199,7 +201,7 @@
   });
 </script>
 
-<div class="editor">
+<div class="editor" style="--editor-max-width: {maxWidth}px">
   {#if loading}
     <div class="loading-overlay">
       <div class="spinner"></div>
@@ -227,6 +229,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    --editor-max-width: 1024px;
   }
 
   .editor-content {
@@ -234,6 +237,8 @@
     overflow-y: auto;
     padding: 1rem;
     cursor: text;
+    display: flex;
+    justify-content: center;
   }
 
   /* Make the editor content take full height */
@@ -242,6 +247,9 @@
     outline: none;
     font-size: 1rem;
     line-height: 1.5;
+    width: 100%;
+    max-width: var(--editor-max-width);
+    margin: 0 auto;
   }
 
   :global(.editor .tiptap:focus) {

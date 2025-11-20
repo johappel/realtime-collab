@@ -115,10 +115,10 @@
         display: flex;
         align-items: center;
         gap: 0.75rem;
-        padding: 0.5rem 0.75rem;
+        /* padding: 0.5rem 0.75rem; */
         background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.5rem;
+        /* border: 1px solid #e5e7eb; */
+        /* border-radius: 0.5rem; */
     }
 
     .presence-header {
