@@ -16,7 +16,16 @@ const DEFAULT_RELAYS = [
 ];
 
 function uint8ToBase64(u8: Uint8Array): string {
-  return btoa(String.fromCharCode(...u8));
+  const CHUNK_SIZE = 0x8000;
+  let index = 0;
+  const length = u8.length;
+  let result = '';
+  while (index < length) {
+    const slice = u8.subarray(index, Math.min(index + CHUNK_SIZE, length));
+    result += String.fromCharCode.apply(null, slice as any);
+    index += CHUNK_SIZE;
+  }
+  return btoa(result);
 }
 
 function base64ToUint8(b64: string): Uint8Array {
@@ -64,6 +73,11 @@ export class NostrYDocProvider {
   }
 
   private applyEvent(event: Event) {
+    // if (event.pubkey === this.myPubkey) return; 
+    // ^-- REMOVED: This prevents syncing between different tabs/devices 
+    // using the same Nostr identity (common in testing).
+    // Yjs handles duplicate updates internally anyway.
+
     try {
         const update = base64ToUint8(event.content);
         Y.applyUpdate(this.ydoc, update, 'remote');
@@ -108,7 +122,9 @@ export class NostrYDocProvider {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      this.signAndPublish(nostrEvent).catch((error) => {
+      this.signAndPublish(nostrEvent).then(() => {
+        if (this.debug) console.log(`[NostrYDocProvider] Published update kind 9337`);
+      }).catch((error) => {
         console.error('Failed to sign/publish Nostr Yjs event', error);
       });
     });
