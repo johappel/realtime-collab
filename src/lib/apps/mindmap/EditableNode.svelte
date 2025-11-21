@@ -46,9 +46,19 @@
   }
 </script>
 
-<div class="px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 transition-all duration-200">
+<div class="relative px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 transition-all duration-200 group">
   <Handle type="target" position={targetPosition} class="w-3 h-3 bg-blue-500!" />
   
+  <!-- Drag Handle Indicator (Floating above) -->
+  <div class="absolute -top-5 left-0 right-0 flex justify-center items-center h-4 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+       class:opacity-100={selected}>
+      <div class="w-16 h-1.5 rounded-full shadow-sm transition-colors duration-200"
+           class:bg-blue-500={selected}
+           class:bg-gray-400={!selected}
+           class:dark:bg-gray-500={!selected}>
+      </div>
+  </div>
+
   <div class="flex flex-col gap-1">
       <textarea 
           bind:this={labelTextarea}
