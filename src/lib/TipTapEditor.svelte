@@ -437,6 +437,12 @@
     border-radius: 0.5rem 0.5rem 0 0;
   }
 
+  :global(.dark) .error-alert {
+    background-color: #7f1d1d;
+    color: #fecaca;
+    border-bottom-color: #991b1b;
+  }
+
   .text-sm {
     font-size: 0.875rem;
     margin-top: 0.25rem;
@@ -457,6 +463,11 @@
     border-radius: 0.5rem;
   }
 
+  :global(.dark) .loading-overlay {
+    background: rgba(17, 24, 39, 0.8);
+    color: #f3f4f6;
+  }
+
   .spinner {
     width: 2rem;
     height: 2rem;
@@ -465,6 +476,11 @@
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 0.5rem;
+  }
+
+  :global(.dark) .spinner {
+    border-color: #374151;
+    border-top-color: #60a5fa;
   }
 
   @keyframes spin {
@@ -500,6 +516,12 @@
     visibility: hidden;
   }
 
+  :global(.dark) .bubble-menu {
+    background-color: #1f2937;
+    border-color: #374151;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  }
+
   :global(.tippy-box) .bubble-menu {
     visibility: visible;
   }
@@ -516,9 +538,18 @@
     white-space: nowrap;
   }
 
+  :global(.dark) .bubble-menu button {
+    color: #d1d5db;
+  }
+
   .bubble-menu button:hover {
     background-color: #f3f4f6;
     color: #111827;
+  }
+
+  :global(.dark) .bubble-menu button:hover {
+    background-color: #374151;
+    color: #f9fafb;
   }
 
   .bubble-menu button.danger {
@@ -530,8 +561,17 @@
     color: #991b1b;
   }
 
+  :global(.dark) .bubble-menu button.danger:hover {
+    background-color: #7f1d1d;
+    color: #fecaca;
+  }
+
   .bubble-menu .separator {
     color: #e5e7eb;
     margin: 0 0.25rem;
+  }
+
+  :global(.dark) .bubble-menu .separator {
+    color: #374151;
   }
 </style>

@@ -70,7 +70,7 @@
 
   // Snapshots
   let snapshots: Event[] = $state([]);
-  let provider: any = null;
+  let provider: any = $state(null);
 
   $effect(() => {
     const storedMode = localStorage.getItem("editor_mode");
