@@ -1,36 +1,55 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount, onDestroy, untrack } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { usePollYDoc, type PollOption, type PollSettings } from './usePollYDoc';
     import { loadConfig } from '$lib/config';
     import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
     import { theme } from '$lib/stores/theme.svelte';
+    import * as Y from 'yjs';
 
     let { 
         documentId, 
         user = { name: 'Anon', color: '#ff0000' },
-        mode = 'local'
+        mode = 'local',
+        title = $bindable(''),
+        awareness = $bindable(null),
+        settings = $bindable(writable({
+            allowUserOptions: false,
+            anonymous: false,
+            multiSelect: false
+        }))
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
+        title?: string;
+        awareness?: any;
+        settings?: Writable<PollSettings>;
     }>();
 
     let question: Writable<string> = $state(writable(''));
     let options: Writable<PollOption[]> = $state(writable([]));
-    let settings: Writable<PollSettings> = $state(writable({
-        allowUserOptions: false,
-        anonymous: false,
-        multiSelect: false
-    }));
+    // let settings: Writable<PollSettings> = $state(writable(...)); // Now passed as prop or initialized below if not passed? 
+    // Actually, usePollYDoc returns the store. We should probably sync the prop with the internal store or just use the internal one and expose it.
+    // Since usePollYDoc creates the store linked to Yjs, we should use THAT store.
+    // But we want to bind it to the parent.
+    // Let's initialize a local reference and sync it or just let the parent bind to the one we get from usePollYDoc.
     
     let cleanup: (() => void) | null = null;
     let actions: any = {};
     let myUserId = $state('');
+    let ydoc: Y.Doc | null = $state(null);
 
     // Local state for new option input
     let newOptionText = $state('');
-    let showSettings = $state(false);
+
+    export function updateSettings(newSettings: Partial<PollSettings>) {
+        actions.updateSettings(newSettings);
+    }
+
+    export function resetVotes() {
+        actions.resetVotes();
+    }
 
     onMount(async () => {
         let pubkey = '';
@@ -64,8 +83,14 @@
 
         question = result.question;
         options = result.options;
-        settings = result.settings;
+        settings = result.settings; // This overwrites the prop reference if we aren't careful. 
+        // Svelte 5 bindable props are signals. If we assign to `settings`, we update the parent.
+        // Perfect.
+        
         cleanup = result.cleanup;
+        ydoc = result.ydoc;
+        awareness = result.awareness;
+
         actions = {
             setQuestion: result.setQuestion,
             addOption: result.addOption,
@@ -74,6 +99,65 @@
             updateSettings: result.updateSettings,
             resetVotes: result.resetVotes
         };
+
+        // Title Sync Logic
+        const metaMap = ydoc.getMap("metadata");
+
+        const handleMetaUpdate = (event: Y.YMapEvent<any>) => {
+            if (event.transaction.local) return;
+            const storedTitle = metaMap.get("poll-title") as string;
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            }
+        };
+
+        metaMap.observe(handleMetaUpdate);
+        
+        // Initial sync
+        const storedTitle = metaMap.get("poll-title") as string;
+        untrack(() => {
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            } else if (storedTitle === undefined && title && title !== documentId) {
+                metaMap.set("poll-title", title);
+            }
+        });
+
+        // Wrap cleanup to include unobserve
+        const originalCleanup = cleanup;
+        cleanup = () => {
+            metaMap.unobserve(handleMetaUpdate);
+            if (originalCleanup) originalCleanup();
+        };
+    });
+
+    // Write title changes to Yjs
+    $effect(() => {
+        if (!ydoc) return;
+        const metaMap = ydoc.getMap("metadata");
+        const storedTitle = metaMap.get("poll-title") as string;
+        
+        if (title && title !== storedTitle) {
+            metaMap.set("poll-title", title);
+        }
+    });
+
+    // Sync user state with awareness
+    $effect(() => {
+        if (awareness && user) {
+            const currentState = awareness.getLocalState() as any;
+            const newUser = {
+                name: user.name,
+                color: user.color,
+            };
+            
+            if (!currentState || 
+                currentState.user?.name !== newUser.name || 
+                currentState.user?.color !== newUser.color) {
+                
+                awareness.setLocalStateField("user", newUser);
+            }
+        }
     });
 
     onDestroy(() => {
@@ -104,59 +188,7 @@
             value={$question}
             oninput={(e) => actions.setQuestion(e.currentTarget.value)}
         />
-        <button 
-            onclick={() => showSettings = !showSettings}
-            class="mt-2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Einstellungen"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-        </button>
     </div>
-
-    <!-- Settings Toggles -->
-    {#if showSettings}
-        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-wrap gap-4 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
-            <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
-                <input 
-                    type="checkbox" 
-                    checked={$settings.multiSelect} 
-                    onchange={(e) => actions.updateSettings({ multiSelect: e.currentTarget.checked })}
-                    class="rounded text-blue-600 focus:ring-blue-500"
-                />
-                Mehrfachauswahl
-            </label>
-            
-            <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
-                <input 
-                    type="checkbox" 
-                    checked={$settings.anonymous} 
-                    onchange={(e) => actions.updateSettings({ anonymous: e.currentTarget.checked })}
-                    class="rounded text-blue-600 focus:ring-blue-500"
-                />
-                Anonyme Abstimmung
-            </label>
-
-            <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
-                <input 
-                    type="checkbox" 
-                    checked={$settings.allowUserOptions} 
-                    onchange={(e) => actions.updateSettings({ allowUserOptions: e.currentTarget.checked })}
-                    class="rounded text-blue-600 focus:ring-blue-500"
-                />
-                Eigene Optionen erlauben
-            </label>
-
-            <button 
-                onclick={() => actions.resetVotes()}
-                class="ml-auto text-red-600 hover:text-red-700 font-medium"
-            >
-                Reset Votes
-            </button>
-        </div>
-    {/if}
 
     <!-- Options List -->
     <div class="space-y-4">

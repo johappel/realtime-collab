@@ -1,31 +1,92 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import PollApp from '$lib/apps/poll/PollApp.svelte';
+    import AppHeader from '$lib/AppHeader.svelte';
+    import { appState } from '$lib/stores/appState.svelte';
+    import { untrack, onMount } from 'svelte';
+    import type { Awareness } from 'y-protocols/awareness';
+    import { writable } from 'svelte/store';
     
     let { data } = $props();
-    let documentId = $derived($page.params.documentId ?? 'default');
+    const pageStore = $state($page);
+    let documentId = $derived(pageStore.params.documentId ?? 'default');
+    let docTitle = $state(untrack(() => documentId));
     
-    // Simple mode toggle for demo purposes
-    let mode = $state<'local' | 'nostr'>('local');
+    let pollApp = $state<PollApp>();
+    let awareness: Awareness | null = $state(null);
+    let settings = $state(writable({
+        allowUserOptions: false,
+        anonymous: false,
+        multiSelect: false
+    }));
+
+    onMount(() => {
+        appState.init();
+    });
 </script>
 
-<div class="h-full w-full flex flex-col">
-    <div class="p-4 border-b bg-gray-50 dark:bg-gray-800 dark:border-gray-700 flex justify-between items-center">
-        <h1 class="text-xl font-bold dark:text-white">Poll: {documentId}</h1>
-        <div class="flex gap-2">
-             <label class="flex items-center gap-2 text-sm">
-                <input type="radio" bind:group={mode} value="local" /> Local
-            </label>
-            <label class="flex items-center gap-2 text-sm">
-                <input type="radio" bind:group={mode} value="nostr" /> Nostr
-            </label>
-        </div>
+{#snippet toolbar()}
+    <div class="flex gap-4 items-center overflow-x-auto">
+        <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-gray-300 whitespace-nowrap">
+            <input 
+                type="checkbox" 
+                checked={$settings.multiSelect} 
+                onchange={(e) => pollApp?.updateSettings({ multiSelect: e.currentTarget.checked })}
+                class="rounded text-blue-600 focus:ring-blue-500"
+            />
+            Multi-Select
+        </label>
+        
+        <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-gray-300 whitespace-nowrap">
+            <input 
+                type="checkbox" 
+                checked={$settings.anonymous} 
+                onchange={(e) => pollApp?.updateSettings({ anonymous: e.currentTarget.checked })}
+                class="rounded text-blue-600 focus:ring-blue-500"
+            />
+            Anonymous
+        </label>
+
+        <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-gray-300 whitespace-nowrap">
+            <input 
+                type="checkbox" 
+                checked={$settings.allowUserOptions} 
+                onchange={(e) => pollApp?.updateSettings({ allowUserOptions: e.currentTarget.checked })}
+                class="rounded text-blue-600 focus:ring-blue-500"
+            />
+            User Options
+        </label>
+
+        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+
+        <button 
+            onclick={() => pollApp?.resetVotes()}
+            class="px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/30 rounded text-xs font-medium transition-colors whitespace-nowrap"
+        >
+            Reset Votes
+        </button>
     </div>
-    <div class="flex-1 relative overflow-auto p-4">
-        {#key mode}
+{/snippet}
+
+<div class="h-full w-full flex flex-col bg-gray-50 dark:bg-gray-900">
+    <AppHeader 
+        bind:documentId={docTitle}
+        {awareness}
+        showHistory={false}
+        maxWidth={1024}
+        {toolbar}
+    />
+    
+    <div class="flex-1 relative overflow-auto">
+        {#key appState.mode}
             <PollApp 
+                bind:this={pollApp}
                 {documentId}
-                {mode}
+                user={appState.user}
+                mode={appState.mode}
+                bind:title={docTitle}
+                bind:awareness={awareness}
+                bind:settings={settings}
             />
         {/key}
     </div>
