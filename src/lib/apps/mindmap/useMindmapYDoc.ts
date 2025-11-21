@@ -7,6 +7,7 @@ import { writable, type Writable } from 'svelte/store';
 export interface UseMindmapYDocResult {
     nodes: Writable<Node[]>;
     edges: Writable<Edge[]>;
+    layout: Writable<'horizontal' | 'vertical'>;
     yNodes: Y.Map<Node>;
     yEdges: Y.Map<Edge>;
     ydoc: Y.Doc;
@@ -44,10 +45,12 @@ export function useMindmapYDoc(
     // Yjs Data Structures
     const yNodes = ydoc.getMap<Node>('mindmap-nodes');
     const yEdges = ydoc.getMap<Edge>('mindmap-edges');
+    const ySettings = ydoc.getMap<any>('mindmap-settings');
 
     // Svelte Stores for UI
     const nodes = writable<Node[]>(Array.from(yNodes.values()));
     const edges = writable<Edge[]>(Array.from(yEdges.values()));
+    const layout = writable<'horizontal' | 'vertical'>(ySettings.get('layout') || 'vertical');
 
     let isRemoteUpdate = false;
 
@@ -62,9 +65,16 @@ export function useMindmapYDoc(
         edges.set(Array.from(yEdges.values()));
         isRemoteUpdate = false;
     };
+    const handleSettingsUpdate = () => {
+        const l = ySettings.get('layout');
+        if (l && l !== 'undefined') {
+            layout.set(l);
+        }
+    };
 
     yNodes.observe(handleNodesUpdate);
     yEdges.observe(handleEdgesUpdate);
+    ySettings.observe(handleSettingsUpdate);
 
     // Sync Svelte Stores -> Yjs
     const unsubscribeNodes = nodes.subscribe((currentNodes) => {
@@ -111,15 +121,24 @@ export function useMindmapYDoc(
         });
     });
 
+    const unsubscribeLayout = layout.subscribe((l) => {
+        if (ySettings.get('layout') !== l) {
+            ySettings.set('layout', l);
+        }
+    });
+
     // Initial load
     handleNodesUpdate();
     handleEdgesUpdate();
+    handleSettingsUpdate();
 
     const cleanup = () => {
         yNodes.unobserve(handleNodesUpdate);
         yEdges.unobserve(handleEdgesUpdate);
+        ySettings.unobserve(handleSettingsUpdate);
         unsubscribeNodes();
         unsubscribeEdges();
+        unsubscribeLayout();
         if (provider && typeof provider.destroy === 'function') provider.destroy();
         if (awareness) awareness.destroy();
         if (persistence && typeof persistence.destroy === 'function') persistence.destroy();
@@ -129,6 +148,7 @@ export function useMindmapYDoc(
     return {
         nodes,
         edges,
+        layout,
         yNodes,
         yEdges,
         ydoc,

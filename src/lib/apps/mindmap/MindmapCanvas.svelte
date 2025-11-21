@@ -1,10 +1,10 @@
 <script lang="ts">
-    import { SvelteFlow, Background, Controls, type Node, type Edge } from '@xyflow/svelte';
+    import { SvelteFlow, Background, Controls, type Node, type Edge, Position } from '@xyflow/svelte';
     import '@xyflow/svelte/dist/style.css';
     import { writable, type Writable } from 'svelte/store';
     import { theme } from '$lib/stores/theme.svelte';
     import { useMindmapYDoc } from './useMindmapYDoc';
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount, onDestroy, untrack } from 'svelte';
     import { loadConfig } from '$lib/config';
     import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
     import * as Y from 'yjs';
@@ -29,10 +29,12 @@
     // Stores from Yjs (source of truth)
     let nodesStore: Writable<Node[]> = $state(writable([]));
     let edgesStore: Writable<Edge[]> = $state(writable([]));
+    let layoutStore: Writable<'horizontal' | 'vertical'> = $state(writable('vertical'));
     
     // Local state for SvelteFlow (UI)
     let nodes = $state<Node[]>([]);
     let edges = $state<Edge[]>([]);
+    let layout = $state<'horizontal' | 'vertical'>('vertical');
 
     let yNodes: Y.Map<Node> | null = null;
     let yEdges: Y.Map<Edge> | null = null;
@@ -69,9 +71,27 @@
 
         nodesStore = result.nodes;
         edgesStore = result.edges;
+        layoutStore = result.layout;
         yNodes = result.yNodes;
         yEdges = result.yEdges;
         cleanup = result.cleanup;
+    });
+
+    // Sync Store -> State (Layout)
+    $effect(() => {
+        const unsub = layoutStore.subscribe(l => {
+            layout = l;
+            // Update node handles when layout changes
+            const currentNodes = untrack(() => nodes);
+            if (currentNodes.length > 0) {
+                nodes = currentNodes.map(n => ({
+                    ...n,
+                    sourcePosition: l === 'horizontal' ? Position.Right : Position.Bottom,
+                    targetPosition: l === 'horizontal' ? Position.Left : Position.Top
+                }));
+            }
+        });
+        return unsub;
     });
 
     // Sync Store -> State (Nodes)
@@ -79,14 +99,32 @@
         const unsub = nodesStore.subscribe(n => {
             if (!isUpdatingNodesInternal) {
                 // Ensure editable nodes have the min-width class on the wrapper
+                // And ensure correct handle positions based on current layout
+                const currentLayout = untrack(() => layout);
                 nodes = n.map(node => {
+                    let updated = node;
+                    
+                    // Min-width check
                     if ((node.type === 'editable' || node.type === 'default') && !node.class?.includes('min-w-[200px]')) {
-                        return { 
-                            ...node, 
-                            class: (node.class ? node.class + ' ' : '') + 'min-w-[200px]' 
+                        updated = { 
+                            ...updated, 
+                            class: (updated.class ? updated.class + ' ' : '') + 'min-w-[200px]' 
                         };
                     }
-                    return node;
+
+                    // Handle position check
+                    const targetSource = currentLayout === 'horizontal' ? Position.Right : Position.Bottom;
+                    const targetTarget = currentLayout === 'horizontal' ? Position.Left : Position.Top;
+
+                    if (updated.sourcePosition !== targetSource || updated.targetPosition !== targetTarget) {
+                        updated = {
+                            ...updated,
+                            sourcePosition: targetSource,
+                            targetPosition: targetTarget
+                        };
+                    }
+
+                    return updated;
                 });
             }
         });
@@ -135,11 +173,19 @@
         if (parentId) {
             const parent = nodes.find(n => n.id === parentId);
             if (parent) {
-                // Place it to the right and slightly randomized vertically
-                position = { 
-                    x: parent.position.x + 300, 
-                    y: parent.position.y + (Math.random() - 0.5) * 100 
-                };
+                if (layout === 'horizontal') {
+                    // Place to the right
+                    position = { 
+                        x: parent.position.x + 300, 
+                        y: parent.position.y + (Math.random() - 0.5) * 100 
+                    };
+                } else {
+                    // Place below
+                    position = { 
+                        x: parent.position.x + (Math.random() - 0.5) * 100, 
+                        y: parent.position.y + 150 
+                    };
+                }
             }
         }
 
@@ -149,7 +195,9 @@
             data: { label: 'New Node', content: '', initialFocus: true },
             position,
             class: 'min-w-[200px]',
-            selected: true
+            selected: true,
+            sourcePosition: layout === 'horizontal' ? Position.Right : Position.Bottom,
+            targetPosition: layout === 'horizontal' ? Position.Left : Position.Top
         };
 
         // Update local state: Deselect others and add new node
@@ -162,10 +210,15 @@
                 id: crypto.randomUUID(),
                 source: parentId,
                 target: id,
-                type: 'default'
+                type: 'default' // 'smoothstep' or 'bezier' might be better for horizontal
             };
             edges = [...edges, newEdge];
         }
+    }
+
+    function toggleLayout() {
+        const newLayout = layout === 'vertical' ? 'horizontal' : 'vertical';
+        layoutStore.set(newLayout);
     }
 
     function handleKeyDown(event: KeyboardEvent) {
@@ -210,7 +263,15 @@
     </SvelteFlow>
     {/if}
     
-    <div class="absolute top-4 right-4 z-10">
+    <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
+        <button 
+            class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-3 py-2 rounded shadow text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            onclick={toggleLayout}
+            title="Layout umschalten"
+        >
+            {layout === 'vertical' ? '↕ Vertical' : '↔ Horizontal'}
+        </button>
+
         <button 
             class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
             onclick={() => addNode()}

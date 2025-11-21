@@ -10,7 +10,7 @@
       }
   }
 
-  let { data } = $props() as MyNodeProps;
+  let { data, sourcePosition = Position.Bottom, targetPosition = Position.Top } = $props() as MyNodeProps;
   let labelTextarea: HTMLTextAreaElement | undefined = $state();
 
   onMount(() => {
@@ -47,7 +47,7 @@
 </script>
 
 <div class="px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
-  <Handle type="target" position={Position.Top} class="w-3 h-3 bg-blue-500!" />
+  <Handle type="target" position={targetPosition} class="w-3 h-3 bg-blue-500!" />
   
   <div class="flex flex-col gap-1">
       <textarea 
@@ -70,5 +70,5 @@
       ></textarea>
   </div>
   
-  <Handle type="source" position={Position.Bottom} class="w-3 h-3 bg-blue-500!" />
+  <Handle type="source" position={sourcePosition} class="w-3 h-3 bg-blue-500!" />
 </div>
