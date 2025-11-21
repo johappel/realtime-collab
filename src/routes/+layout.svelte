@@ -16,7 +16,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="min-h-screen flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+<div class="h-screen flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
 	<header class="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
 		<div class="flex items-center gap-6">
 			<a href="/" class="font-bold text-lg tracking-tight">Realtime Collab</a>
@@ -24,7 +24,8 @@
 			<nav class="flex gap-4 text-sm font-medium">
 				<a href="/editor/demo" class:text-blue-600={$page.url.pathname.startsWith('/editor')} class="hover:text-blue-500">Editor</a>
 				<a href="/mindmap/demo" class:text-blue-600={$page.url.pathname.startsWith('/mindmap')} class="hover:text-blue-500">Mindmap</a>
-				<!-- Future apps: Todo, Whiteboard -->
+				<a href="/todo/demo" class:text-blue-600={$page.url.pathname.startsWith('/todo')} class="hover:text-blue-500">Todo</a>
+				<!-- Future apps: Whiteboard -->
 			</nav>
 		</div>
 

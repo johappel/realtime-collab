@@ -74,6 +74,9 @@ importers:
       nostr-tools:
         specifier: ^2.17.3
         version: 2.17.4(typescript@5.9.3)
+      svelte-dnd-action:
+        specifier: ^0.9.67
+        version: 0.9.67(svelte@5.43.12)
       turndown:
         specifier: ^7.2.2
         version: 7.2.2
@@ -2008,6 +2011,11 @@ packages:
     peerDependencies:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: '>=5.0.0'
+
+  svelte-dnd-action@0.9.67:
+    resolution: {integrity: sha512-yEJQZ9SFy3O4mnOdtjwWyotRsWRktNf4W8k67zgiLiMtMNQnwCyJHBjkGMgZMDh8EGZ4gr88l+GebBWoHDwo+g==}
+    peerDependencies:
+      svelte: '>=3.23.0 || ^5.0.0-next.0'
 
   svelte-eslint-parser@1.4.0:
     resolution: {integrity: sha512-fjPzOfipR5S7gQ/JvI9r2H8y9gMGXO3JtmrylHLLyahEMquXI0lrebcjT+9/hNgDej0H7abTyox5HpHmW1PSWA==}
@@ -4107,6 +4115,10 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - picomatch
+
+  svelte-dnd-action@0.9.67(svelte@5.43.12):
+    dependencies:
+      svelte: 5.43.12
 
   svelte-eslint-parser@1.4.0(svelte@5.43.12):
     dependencies:

@@ -130,6 +130,7 @@
         bind:nodes={nodes} 
         bind:edges={edges} 
         fitView
+        class="h-full w-full"
         colorMode={theme.isDark ? 'dark' : 'light'}
     >
         <Background />
