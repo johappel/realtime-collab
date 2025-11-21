@@ -23,7 +23,7 @@
     let actions: any = {};
 
     // Tool State
-    let activeTool = $state<'pen' | 'card' | 'frame' | 'select'>('pen');
+    let activeTool = $state<'pen' | 'card' | 'frame' | 'select'>('select');
     let currentColor = $state('#000000');
     let currentWidth = $state(3);
     let cardColor = $state('#fff9c4'); // Default Post-It Yellow
@@ -471,7 +471,7 @@
                         </div>
 
                         <textarea
-                            class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0 overflow-y-auto"
+                            class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
                             value={card.text}
                             oninput={(e) => {
                                 actions.updateCard(card.id, { text: e.currentTarget.value });

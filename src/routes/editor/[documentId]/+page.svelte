@@ -1,24 +1,18 @@
 <script lang="ts">
   import TipTapEditor from "$lib/TipTapEditor.svelte";
-  import PresenceList from "$lib/PresenceList.svelte";
   import EditorToolbar from "$lib/EditorToolbar.svelte";
-  import SettingsDialog from "$lib/SettingsDialog.svelte";
   import HistorySidebar from "$lib/HistorySidebar.svelte";
-  import Settings from "lucide-svelte/icons/settings";
-  import History from "lucide-svelte/icons/history";
+  import AppHeader from "$lib/AppHeader.svelte";
+  import { appState } from "$lib/stores/appState.svelte";
   import { page } from "$app/stores";
   import type { Awareness } from "y-protocols/awareness";
-  import { getNip07Pubkey, fetchNostrProfile, getRandomColor } from "$lib/nostrUtils";
-  import { loadConfig } from "$lib/config";
   import type { Editor } from "@tiptap/core";
   import TurndownService from "turndown";
   import { gfm } from "turndown-plugin-gfm";
   import type { Event } from "nostr-tools";
-
-  import { untrack } from "svelte";
+  import { untrack, onMount } from "svelte";
 
   const pageStore = $state($page);
-
   const documentId = $derived(pageStore.params.documentId ?? "default");
   const isMarkdownView = $derived($page.url.searchParams.has('markdown'));
   
@@ -36,7 +30,6 @@
         })
         .catch((e) => {
           console.error("Failed to load file from URL:", e);
-          // Silent fail or alert? Let's log for now.
         });
     } else {
       fetchedContent = null;
@@ -45,62 +38,27 @@
 
   const initialContent = $derived(fetchedContent ?? urlContent);
 
-  // Hier wird der aktuelle User definiert.
-  // Momentan ist dies hardcodiert auf "TestUser".
-  // Später könnte hier ein echter Login oder eine Eingabeaufforderung stehen.
-  const user = $state({
-    name: "TestUser",
-    color: "#0ea5e9",
-  });
-
-  let mode: "local" | "nostr" = $state("local");
   let awareness: Awareness | null = $state(null);
   let editor: Editor | null = $state(null);
-  let relays: string[] = $state([]);
   
-  let showSettings = $state(false);
   let showHistory = $state(false);
   let maxWidth = $state(1024);
-  let settingsButton: HTMLButtonElement | null = $state(null);
   
   let markdownContent = $state("");
-
-  // Initialize with documentId. Updates will come via binding from TipTapEditor
   let docTitle = $state(untrack(() => documentId));
-
-  // Snapshots
   let snapshots: Event[] = $state([]);
   let provider: any = $state(null);
 
-  $effect(() => {
-    const storedMode = localStorage.getItem("editor_mode");
-    if (storedMode === "nostr" || storedMode === "local") {
-      mode = storedMode;
-    } else if (isMarkdownView) {
-      // Default to nostr for markdown view if no preference is stored
-      mode = "nostr";
-    }
-    
-    const storedWidth = localStorage.getItem("editor_max_width");
-    if (storedWidth) {
-        maxWidth = parseInt(storedWidth, 10);
-    }
-  });
-
-  $effect(() => {
-    localStorage.setItem("editor_mode", mode);
-    if (mode === "nostr") {
-      loadNostrProfile();
-    }
+  onMount(() => {
+      appState.init();
+      const storedWidth = localStorage.getItem("editor_max_width");
+      if (storedWidth) {
+          maxWidth = parseInt(storedWidth, 10);
+      }
   });
   
   $effect(() => {
       localStorage.setItem("editor_max_width", maxWidth.toString());
-  });
-
-  // Load config to get relays
-  $effect(() => {
-      loadConfig().then(c => relays = c.docRelays);
   });
 
   $effect(() => {
@@ -124,32 +82,11 @@
     }
   });
 
-  async function loadNostrProfile() {
-    try {
-      const config = await loadConfig();
-      const pubkey = await getNip07Pubkey();
-      
-      // Set color based on pubkey immediately
-      user.color = getRandomColor(pubkey);
-
-      const profile = await fetchNostrProfile(pubkey, config.profileRelays);
-
-      if (profile && profile.name) {
-        user.name = profile.name;
-      } else {
-        user.name = "NostrUser";
-      }
-    } catch (e) {
-      console.error("Failed to load Nostr profile", e);
-    }
-  }
-
-  // Callback to receive awareness from TipTapEditor
   function handleAwarenessReady(aw: Awareness | null) {
     awareness = aw;
   }
 
-  function handleDownload(format: "markdown" | "html" | "doc") {
+  function handleDownload(format: string) {
     if (!editor) return;
 
     let content = "";
@@ -161,7 +98,6 @@
       mimeType = "text/html";
       extension = "html";
     } else if (format === "doc") {
-      // Simple HTML export with .doc extension (Word can open this)
       content = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head><meta charset='utf-8'><title>${documentId}</title></head><body>
@@ -170,7 +106,6 @@
       mimeType = "application/msword";
       extension = "doc";
     } else if (format === "markdown") {
-      // Basic HTML to Markdown conversion using turndown
       const turndownService = new TurndownService({
         headingStyle: "atx",
         codeBlockStyle: "fenced",
@@ -190,8 +125,6 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
-    showSettings = false;
   }
 
   function handleSaveSnapshot() {
@@ -201,21 +134,9 @@
   }
 
   function handleLoadSnapshot(snapshot: Event) {
-      // We need to apply the snapshot to the Yjs doc.
-      // Since we don't have direct access to Y.applyUpdate here easily without importing Yjs,
-      // we can rely on the provider to do it if we expose a method, OR we can just reload the page?
-      // Reloading is safest to ensure clean state, but bad UX.
-      // Better: Pass it to TipTapEditor via a prop or method?
-      // Actually, TipTapEditor binds `provider` to us? No, it keeps it internal.
-      // Let's expose `provider` from TipTapEditor.
-      
-      // For now, let's just alert that this feature is experimental or implement it via TipTapEditor binding.
-      // Wait, I can bind `provider` from TipTapEditor!
-      
       if (provider && typeof provider.applySnapshot === 'function') {
           provider.applySnapshot(snapshot);
       } else {
-          // Fallback: Reload page? No.
           alert("Snapshot laden wird noch nicht unterstützt (Provider nicht bereit).");
       }
   }
@@ -225,71 +146,29 @@
   <title>Realtime Editor – {documentId}</title>
 </svelte:head>
 
-<SettingsDialog 
-    bind:open={showSettings} 
-    bind:maxWidth={maxWidth} 
-    onDownload={handleDownload}
-    anchorElement={settingsButton}
-/>
+{#snippet editorToolbar()}
+    <EditorToolbar {editor} />
+{/snippet}
 
 <main class="page">
   {#if !isMarkdownView}
-  <header class="header">
-    <div class="header-left">
-        <input 
-            type="text" 
-            class="doc-title-input" 
-            bind:value={docTitle} 
-            placeholder={documentId}
-            title="Dokumenttitel bearbeiten"
-        />
-    </div>
-
-    <div class="header-center">
-        <div class="toolbar-wrapper">
-            <EditorToolbar {editor} />
-        </div>
-    </div>
-
-    <div class="header-right">
-        <PresenceList {awareness} {mode} />
-        
-        <div class="controls">
-            <button 
-                class="icon-btn" 
-                class:active={showHistory}
-                onclick={() => showHistory = !showHistory} 
-                title="Versionen / Snapshots"
-            >
-                <History size={18} />
-            </button>
-            <button 
-                class="icon-btn" 
-                onclick={() => showSettings = true} 
-                title="Einstellungen"
-                bind:this={settingsButton}
-            >
-                <Settings size={18} />
-            </button>
-            <div class="divider"></div>
-            <label class:active={mode === "local"}>
-                <input type="radio" bind:group={mode} value="local" /> Local
-            </label>
-            <label class:active={mode === "nostr"}>
-                <input type="radio" bind:group={mode} value="nostr" /> Nostr
-            </label>
-        </div>
-    </div>
-  </header>
+    <AppHeader 
+        bind:documentId={docTitle}
+        {awareness}
+        bind:showHistory
+        bind:maxWidth
+        onDownload={handleDownload}
+        toolbar={editorToolbar}
+    />
   {/if}
   
   <div class="content-wrapper">
     <section class="editor-container" class:visually-hidden={isMarkdownView}>
-        {#key mode}
+        {#key appState.mode}
         <TipTapEditor
             {documentId}
-            {user}
-            {mode}
+            user={appState.user}
+            mode={appState.mode}
             {maxWidth}
             {initialContent}
             bind:title={docTitle}
@@ -301,7 +180,7 @@
         {/key}
     </section>
 
-    {#if showHistory && mode === 'nostr'}
+    {#if showHistory && appState.mode === 'nostr'}
         <HistorySidebar 
             {snapshots} 
             onSaveSnapshot={handleSaveSnapshot}
@@ -317,11 +196,11 @@
   {#if !isMarkdownView}
   <footer class="footer">
       <div class="status-item">
-          <strong>Mode:</strong> {mode}
+          <strong>Mode:</strong> {appState.mode}
       </div>
-      {#if mode === 'nostr'}
+      {#if appState.mode === 'nostr'}
       <div class="status-item">
-          <strong>Relays:</strong> {relays.join(', ')}
+          <strong>Relays:</strong> {appState.relays.join(', ')}
       </div>
       {/if}
   </footer>
@@ -345,126 +224,6 @@
       flex-grow: 1;
       display: flex;
       overflow: hidden;
-  }
-
-  .header {
-    flex-shrink: 0;
-    background-color: white;
-    border-bottom: 1px solid #e5e7eb;
-    height: 3.5rem;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    padding: 0 1rem;
-  }
-
-  .header-left {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-  }
-
-  .header-center {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-  }
-
-  .header-right {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 1rem;
-  }
-
-  .doc-title-input {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0;
-    border: 1px solid transparent;
-    background: transparent;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    width: 100%;
-    max-width: 250px;
-    color: #111827;
-    transition: all 0.2s;
-  }
-
-  .doc-title-input:hover {
-      background-color: #f3f4f6;
-  }
-
-  .doc-title-input:focus {
-      outline: none;
-      background-color: white;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-  }
-
-  .toolbar-wrapper {
-      display: flex;
-      align-items: center;
-  }
-
-  .controls {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    background: #f3f4f6;
-    padding: 0.25rem;
-    border-radius: 0.5rem;
-    flex-shrink: 0;
-  }
-
-  .controls label {
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #4b5563;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-
-  .controls label:hover {
-    color: #111827;
-  }
-
-  .controls label.active {
-    background: white;
-    color: #0ea5e9;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-  }
-
-  .controls input {
-    display: none;
-  }
-
-  .icon-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0.25rem 0.5rem;
-      color: #4b5563;
-      border-radius: 0.375rem;
-  }
-  
-  .icon-btn:hover, .icon-btn.active {
-      background-color: white;
-      color: #111827;
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-  }
-
-  .divider {
-      width: 1px;
-      height: 1.25rem;
-      background-color: #d1d5db;
-      margin: 0 0.25rem;
   }
 
   .editor-container {
@@ -523,21 +282,5 @@
     color: #111827;
     font-size: 0.875rem;
     line-height: 1.5;
-  }
-
-  /* Responsive adjustments */
-  @media (max-width: 768px) {
-      .header {
-          display: flex;
-          flex-wrap: wrap;
-          height: auto;
-          padding: 0.5rem;
-          gap: 0.5rem;
-      }
-
-      .header-left, .header-center, .header-right {
-          width: 100%;
-          justify-content: center;
-      }
   }
 </style>
