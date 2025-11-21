@@ -34,7 +34,7 @@
     let frames: Writable<WhiteboardFrame[]> = $state(writable([]));
     let cleanup: (() => void) | null = null;
     let actions: any = {};
-    let ydoc: any = null;
+    let ydoc: Y.Doc | null = $state(null);
 
     const CARD_COLORS = [
         { name: 'Yellow', value: '#fff9c4' },
