@@ -40,6 +40,7 @@ Dieses Dokument beschreibt die Zielarchitektur des kollaborativen Editors.
 
 1. **UI-Schicht (Svelte/TipTap)**
    - Komponenten unter `src/routes` (Pages) und `src/lib` (Editor, Controls, Layout).
+   - **AppHeader:** Zentrale Komponente für Navigation, Titel und Presence in allen Apps.
    - Nutzt Runes für reaktiven State (`$state`, `$derived`, `$effect`).
    - Der Editor arbeitet immer auf einem `Y.Doc`-basierten Zustand.
 

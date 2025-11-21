@@ -70,6 +70,7 @@ Wenn du eine neue App (z.B. Whiteboard) hinzufügst oder eine bestehende erweite
     - **Niemals** Yjs-Logik direkt in die Svelte-Komponente schreiben (außer bei TipTap, wo es nötig ist).
 3.  **UI-Komponente:**
     - Die Komponente (`NeueApp.svelte`) sollte "dumm" sein und nur Daten anzeigen / Events feuern.
+    - **AppHeader nutzen:** Jede App-Page (`+page.svelte`) MUSS den `AppHeader` verwenden, um konsistente Navigation, Titel-Bearbeitung und Presence-Anzeige zu gewährleisten.
 
 ---
 
