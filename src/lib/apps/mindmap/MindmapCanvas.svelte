@@ -9,6 +9,7 @@
     import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
     import * as Y from 'yjs';
     import { browser } from '$app/environment';
+    import EditableNode from './EditableNode.svelte';
 
     let { 
         documentId, 
@@ -19,6 +20,11 @@
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
     }>();
+
+    const nodeTypes = {
+        editable: EditableNode,
+        default: EditableNode
+    };
 
     // Stores from Yjs (source of truth)
     let nodesStore: Writable<Node[]> = $state(writable([]));
@@ -115,7 +121,7 @@
         const id = crypto.randomUUID();
         const newNode: Node = {
             id,
-            type: 'default',
+            type: 'editable', // Changed to 'editable'
             data: { label: 'New Node' },
             position: { x: Math.random() * 400, y: Math.random() * 400 }
         };
@@ -129,6 +135,7 @@
     <SvelteFlow 
         bind:nodes={nodes} 
         bind:edges={edges} 
+        {nodeTypes}
         fitView
         class="h-full w-full"
         colorMode={theme.isDark ? 'dark' : 'light'}
