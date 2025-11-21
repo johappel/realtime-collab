@@ -1,19 +1,32 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount, onDestroy, untrack } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { useWhiteboardYDoc, type DrawPath, type WhiteboardCard, type WhiteboardFrame } from './useWhiteboardYDoc';
     import { loadConfig } from '$lib/config';
     import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
     import { theme } from '$lib/stores/theme.svelte';
+    import * as Y from 'yjs';
 
     let { 
         documentId, 
         user = { name: 'Anon', color: '#ff0000' },
-        mode = 'local'
+        mode = 'local',
+        activeTool = $bindable('select'),
+        currentColor = $bindable('#000000'),
+        currentWidth = $bindable(3),
+        cardColor = $bindable('#fff9c4'),
+        title = $bindable(''),
+        awareness = $bindable(null)
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
+        activeTool?: 'pen' | 'card' | 'frame' | 'select';
+        currentColor?: string;
+        currentWidth?: number;
+        cardColor?: string;
+        title?: string;
+        awareness?: any;
     }>();
 
     let paths: Writable<DrawPath[]> = $state(writable([]));
@@ -21,12 +34,7 @@
     let frames: Writable<WhiteboardFrame[]> = $state(writable([]));
     let cleanup: (() => void) | null = null;
     let actions: any = {};
-
-    // Tool State
-    let activeTool = $state<'pen' | 'card' | 'frame' | 'select'>('select');
-    let currentColor = $state('#000000');
-    let currentWidth = $state(3);
-    let cardColor = $state('#fff9c4'); // Default Post-It Yellow
+    let ydoc: any = null;
 
     const CARD_COLORS = [
         { name: 'Yellow', value: '#fff9c4' },
@@ -52,6 +60,14 @@
 
     // Canvas Ref
     let svgElement: SVGSVGElement;
+
+    export function undo() {
+        actions.undo();
+    }
+
+    export function clearBoard() {
+        actions.clearBoard();
+    }
 
     onMount(async () => {
         let pubkey = '';
@@ -82,6 +98,8 @@
         cards = result.cards;
         frames = result.frames;
         cleanup = result.cleanup;
+        ydoc = result.ydoc;
+        awareness = result.awareness;
         actions = {
             startPath: result.startPath,
             updatePath: result.updatePath,
@@ -95,6 +113,65 @@
             clearBoard: result.clearBoard,
             undo: result.undo
         };
+
+        // Title Sync Logic
+        const metaMap = ydoc.getMap("metadata");
+
+        const handleMetaUpdate = (event: Y.YMapEvent<any>) => {
+            if (event.transaction.local) return;
+            const storedTitle = metaMap.get("whiteboard-title") as string;
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            }
+        };
+
+        metaMap.observe(handleMetaUpdate);
+        
+        // Initial sync
+        const storedTitle = metaMap.get("whiteboard-title") as string;
+        untrack(() => {
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            } else if (storedTitle === undefined && title && title !== documentId) {
+                metaMap.set("whiteboard-title", title);
+            }
+        });
+
+        // Wrap cleanup to include unobserve
+        const originalCleanup = cleanup;
+        cleanup = () => {
+            metaMap.unobserve(handleMetaUpdate);
+            if (originalCleanup) originalCleanup();
+        };
+    });
+
+    // Write title changes to Yjs
+    $effect(() => {
+        if (!ydoc) return;
+        const metaMap = ydoc.getMap("metadata");
+        const storedTitle = metaMap.get("whiteboard-title") as string;
+        
+        if (title && title !== storedTitle) {
+            metaMap.set("whiteboard-title", title);
+        }
+    });
+
+    // Sync user state with awareness
+    $effect(() => {
+        if (awareness && user) {
+            const currentState = awareness.getLocalState() as any;
+            const newUser = {
+                name: user.name,
+                color: user.color,
+            };
+            
+            if (!currentState || 
+                currentState.user?.name !== newUser.name || 
+                currentState.user?.color !== newUser.color) {
+                
+                awareness.setLocalStateField("user", newUser);
+            }
+        }
     });
 
     onDestroy(() => {
@@ -271,84 +348,6 @@
 </script>
 
 <div class="flex flex-col h-full w-full bg-white dark:bg-gray-900">
-    <!-- Toolbar -->
-    <div class="p-2 border-b border-gray-200 dark:border-gray-700 flex gap-4 items-center bg-gray-50 dark:bg-gray-800 overflow-x-auto">
-        <div class="flex bg-gray-200 dark:bg-gray-700 rounded p-1 gap-1">
-            <button 
-                class="px-3 py-1 rounded text-sm font-medium transition-colors {activeTool === 'pen' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-                onclick={() => activeTool = 'pen'}
-            >
-                Pen
-            </button>
-            <button 
-                class="px-3 py-1 rounded text-sm font-medium transition-colors {activeTool === 'card' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-                onclick={() => activeTool = 'card'}
-            >
-                Card
-            </button>
-            <button 
-                class="px-3 py-1 rounded text-sm font-medium transition-colors {activeTool === 'frame' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-                onclick={() => activeTool = 'frame'}
-            >
-                Frame
-            </button>
-            <button 
-                class="px-3 py-1 rounded text-sm font-medium transition-colors {activeTool === 'select' ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}"
-                onclick={() => activeTool = 'select'}
-            >
-                Select
-            </button>
-        </div>
-
-        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
-
-        {#if activeTool === 'card'}
-            <div class="flex items-center gap-1">
-                {#each CARD_COLORS as color}
-                    <button
-                        class="w-6 h-6 rounded-full border border-gray-300 shadow-sm hover:scale-110 transition-transform"
-                        style="background-color: {color.value}; {cardColor === color.value ? 'ring: 2px solid blue;' : ''}"
-                        onclick={() => cardColor = color.value}
-                        title={color.name}
-                        aria-label={color.name}
-                    >
-                        {#if cardColor === color.value}
-                            <div class="w-full h-full flex items-center justify-center">
-                                <div class="w-2 h-2 bg-gray-800 rounded-full"></div>
-                            </div>
-                        {/if}
-                    </button>
-                {/each}
-            </div>
-        {:else}
-            <div class="flex items-center gap-2">
-                <label class="text-sm font-medium dark:text-gray-300" for="wb-color">Color:</label>
-                <input id="wb-color" type="color" bind:value={currentColor} class="h-8 w-8 rounded cursor-pointer" />
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <label class="text-sm font-medium dark:text-gray-300" for="wb-size">Size:</label>
-                <input id="wb-size" type="range" min="1" max="20" bind:value={currentWidth} class="w-24" />
-            </div>
-        {/if}
-
-        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
-
-        <button 
-            onclick={() => actions.undo()}
-            class="px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-sm font-medium dark:text-white transition-colors"
-        >
-            Undo
-        </button>
-        
-        <button 
-            onclick={() => actions.clearBoard()}
-            class="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 rounded text-sm font-medium transition-colors"
-        >
-            Clear
-        </button>
-    </div>
-
     <!-- Canvas -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
