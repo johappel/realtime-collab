@@ -71,6 +71,7 @@ Wenn du eine neue App (z.B. Whiteboard) hinzufügst oder eine bestehende erweite
 3.  **UI-Komponente:**
     - Die Komponente (`NeueApp.svelte`) sollte "dumm" sein und nur Daten anzeigen / Events feuern.
     - **AppHeader nutzen:** Jede App-Page (`+page.svelte`) MUSS den `AppHeader` verwenden, um konsistente Navigation, Titel-Bearbeitung und Presence-Anzeige zu gewährleisten.
+    - **Titel-Sync:** Der Dokument-Titel muss bidirektional mit `ydoc.getMap('metadata').get('title')` (oder app-spezifischem Key) synchronisiert werden, damit Änderungen im Header auch im Yjs-State landen und umgekehrt.
 
 ---
 

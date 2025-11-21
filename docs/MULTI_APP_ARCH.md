@@ -44,6 +44,15 @@ useTodoYDoc(docId, ...) -> {
 
 **Vorteil:** Die UI-Komponenten (`TodoApp.svelte`) müssen nichts von Yjs oder Nostr wissen. Sie interagieren nur mit Stores und Funktionen.
 
+### 2.4 Metadaten & Titel-Sync
+Jedes Dokument speichert Metadaten (wie den Titel) in einer `Y.Map('metadata')`.
+*   **Pflicht:** Jede App muss sicherstellen, dass der Titel im `AppHeader` mit diesem Yjs-Wert synchronisiert wird.
+*   **Pattern:**
+    1.  `AppHeader` bindet `documentId` (Titel).
+    2.  App-Komponente (`WhiteboardCanvas`) beobachtet `ydoc.getMap('metadata')`.
+    3.  Bei Änderungen (remote) wird der lokale Titel aktualisiert.
+    4.  Bei Änderungen (lokal via Header) wird der Wert in die Yjs-Map geschrieben.
+
 ## 3. App-Spezifika
 
 ### 3.1 Text Editor (TipTap)
