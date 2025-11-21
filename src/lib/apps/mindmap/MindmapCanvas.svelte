@@ -175,7 +175,6 @@
     
     function addNode(parentId?: string) {
         if (!yNodes) return;
-        const id = crypto.randomUUID();
         
         let position = { x: Math.random() * 400, y: Math.random() * 400 };
         
@@ -199,6 +198,40 @@
             }
         }
 
+        createNode(position, parentId);
+    }
+
+    function addSiblingNode(node: Node) {
+        if (!yNodes) return;
+        
+        // Calculate vertical offset based on node height
+        // Use measured height if available (from SvelteFlow), otherwise fallback
+        const currentHeight = node.measured?.height ?? 80;
+        const gap = 10; // Small gap between nodes
+
+        // Find parent
+        const parentEdge = edges.find(e => e.target === node.id);
+        
+        // Position relative to the CURRENT node (the sibling)
+        // We place it directly below the current node
+        const position = {
+            x: node.position.x,
+            y: node.position.y + currentHeight + gap
+        };
+
+        if (!parentEdge) {
+            // No parent? Just add a node below it
+            createNode(position);
+            return;
+        }
+
+        const parentId = parentEdge.source;
+        createNode(position, parentId);
+    }
+
+    function createNode(position: { x: number, y: number }, parentId?: string) {
+        const id = crypto.randomUUID();
+        
         const newNode: Node = {
             id,
             type: 'editable',
@@ -220,7 +253,7 @@
                 id: crypto.randomUUID(),
                 source: parentId,
                 target: id,
-                type: 'default' // 'smoothstep' or 'bezier' might be better for horizontal
+                type: 'default'
             };
             edges = [...edges, newEdge];
         }
@@ -238,7 +271,14 @@
             // Always allow Insert, even in inputs
             event.preventDefault();
             const selectedNode = nodes.find(n => n.selected);
-            addNode(selectedNode?.id);
+            
+            if (event.ctrlKey && selectedNode) {
+                // Add Sibling
+                addSiblingNode(selectedNode);
+            } else {
+                // Add Child (existing behavior)
+                addNode(selectedNode?.id);
+            }
             return;
         }
 
