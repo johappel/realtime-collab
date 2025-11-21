@@ -1,24 +1,59 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 
-  let { data } = $props() as NodeProps;
+  interface MyNodeProps extends NodeProps {
+      data: {
+          label: string;
+          content?: string;
+      }
+  }
+
+  let { data } = $props() as MyNodeProps;
   
-  function handleInput(e: Event) {
-      const target = e.target as HTMLInputElement;
-      // Mutating data.label should trigger updates in the parent if nodes is a $state proxy
+  function handleLabelInput(e: Event) {
+      const target = e.target as HTMLTextAreaElement;
       data.label = target.value;
+      autoResize(target);
+  }
+
+  function handleContentInput(e: Event) {
+      const target = e.target as HTMLTextAreaElement;
+      data.content = target.value;
+      autoResize(target);
+  }
+
+  function autoResize(el: HTMLTextAreaElement) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+  }
+
+  function resizeAction(el: HTMLTextAreaElement) {
+      autoResize(el);
   }
 </script>
 
-<div class="px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 min-w-[150px]">
+<div class="px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
   <Handle type="target" position={Position.Top} class="w-3 h-3 bg-blue-500!" />
   
-  <input 
-      value={data.label} 
-      oninput={handleInput}
-      class="nodrag bg-transparent border-none focus:outline-none text-center w-full text-gray-900 dark:text-white font-medium" 
-      placeholder="Node Name"
-  />
+  <div class="flex flex-col gap-1">
+      <textarea 
+          value={data.label} 
+          oninput={handleLabelInput}
+          use:resizeAction
+          rows="1"
+          class="nodrag bg-transparent border-none focus:outline-none text-center w-full text-gray-900 dark:text-white font-bold text-lg resize-none overflow-hidden" 
+          placeholder="Heading"
+      ></textarea>
+      
+      <textarea
+          value={data.content || ''}
+          oninput={handleContentInput}
+          use:resizeAction
+          rows="1"
+          class="nodrag bg-transparent border-none focus:outline-none w-full text-gray-600 dark:text-gray-300 text-sm resize-none min-h-[60px] text-center font-sans overflow-hidden"
+          placeholder="Description..."
+      ></textarea>
+  </div>
   
   <Handle type="source" position={Position.Bottom} class="w-3 h-3 bg-blue-500!" />
 </div>

@@ -22,8 +22,8 @@
     }>();
 
     const nodeTypes = {
-        editable: EditableNode,
-        default: EditableNode
+        editable: EditableNode as any,
+        default: EditableNode as any
     };
 
     // Stores from Yjs (source of truth)
@@ -78,7 +78,16 @@
     $effect(() => {
         const unsub = nodesStore.subscribe(n => {
             if (!isUpdatingNodesInternal) {
-                nodes = n;
+                // Ensure editable nodes have the min-width class on the wrapper
+                nodes = n.map(node => {
+                    if ((node.type === 'editable' || node.type === 'default') && !node.class?.includes('min-w-[200px]')) {
+                        return { 
+                            ...node, 
+                            class: (node.class ? node.class + ' ' : '') + 'min-w-[200px]' 
+                        };
+                    }
+                    return node;
+                });
             }
         });
         return unsub;
@@ -122,8 +131,9 @@
         const newNode: Node = {
             id,
             type: 'editable', // Changed to 'editable'
-            data: { label: 'New Node' },
-            position: { x: Math.random() * 400, y: Math.random() * 400 }
+            data: { label: 'New Node', content: '' },
+            position: { x: Math.random() * 400, y: Math.random() * 400 },
+            class: 'min-w-[200px]'
         };
         // Update local state, effect will sync to store
         nodes = [...nodes, newNode];
