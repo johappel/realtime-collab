@@ -135,6 +135,18 @@
             actions.setDueDate(id, null);
         }
     }
+
+    function openDatePicker(e: MouseEvent) {
+        const target = e.currentTarget as HTMLElement;
+        const input = target.querySelector('input[type="date"]') as HTMLInputElement;
+        if (input) {
+            try {
+                input.showPicker();
+            } catch (err) {
+                console.warn('showPicker not supported', err);
+            }
+        }
+    }
 </script>
 
 <div class="max-w-2xl mx-auto p-6">
@@ -216,21 +228,29 @@
                     </button>
 
                     <!-- Due Date -->
-                    <div class="flex items-center gap-1.5 relative group/date">
-                        <Calendar size={14} class={item.dueDate ? 'text-blue-600' : ''} />
-                        <input 
-                            type="date" 
-                            class="absolute inset-0 opacity-0 cursor-pointer"
-                            value={item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : ''}
-                            onchange={(e) => handleDateChange(item.id, e)}
-                        />
-                        <span class={item.dueDate ? 'text-blue-600' : ''}>
-                            {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'Due Date'}
-                        </span>
+                    <div class="flex items-center gap-1.5 group/date">
+                        <button 
+                            class="flex items-center gap-1.5 hover:text-blue-600 transition-colors relative"
+                            onclick={openDatePicker}
+                            title="Set due date"
+                        >
+                            <Calendar size={14} class={item.dueDate ? 'text-blue-600' : ''} />
+                            <span class={item.dueDate ? 'text-blue-600' : ''}>
+                                {item.dueDate ? new Date(item.dueDate).toLocaleDateString(undefined, { timeZone: 'UTC' }) : 'Due Date'}
+                            </span>
+                            <input 
+                                type="date" 
+                                class="absolute opacity-0 w-1 h-1 -z-10 bottom-0 left-0"
+                                value={item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : ''}
+                                onchange={(e) => handleDateChange(item.id, e)}
+                                onclick={(e) => e.stopPropagation()}
+                            />
+                        </button>
                         {#if item.dueDate}
                             <button 
-                                class="ml-1 hover:text-red-500"
+                                class="hover:text-red-500"
                                 onclick={(e) => { e.stopPropagation(); actions.setDueDate(item.id, null); }}
+                                title="Clear date"
                             >
                                 <X size={12} />
                             </button>
