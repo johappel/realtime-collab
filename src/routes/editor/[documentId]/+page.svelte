@@ -221,6 +221,10 @@
     background-color: #f9fafb;
   }
 
+  :global(.dark) .page {
+    background-color: #111827;
+  }
+
   .content-wrapper {
       flex-grow: 1;
       display: flex;
@@ -234,6 +238,10 @@
     flex-direction: column;
     background-color: white;
     position: relative;
+  }
+
+  :global(.dark) .editor-container {
+    background-color: #1f2937;
   }
   
   /* Override TipTapEditor styles to fit */
@@ -256,9 +264,19 @@
       height: 1.5rem;
   }
 
+  :global(.dark) .footer {
+      background-color: #1f2937;
+      border-top-color: #374151;
+      color: #9ca3af;
+  }
+
   .status-item strong {
       font-weight: 600;
       color: #4b5563;
+  }
+
+  :global(.dark) .status-item strong {
+      color: #d1d5db;
   }
 
   .visually-hidden {
@@ -283,5 +301,10 @@
     color: #111827;
     font-size: 0.875rem;
     line-height: 1.5;
+  }
+
+  :global(.dark) .markdown-output {
+    background-color: #1f2937;
+    color: #e5e7eb;
   }
 </style>

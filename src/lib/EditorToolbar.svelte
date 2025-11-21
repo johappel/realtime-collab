@@ -376,9 +376,18 @@
     transition: all 0.2s;
   }
 
+  :global(.dark) .toolbar-button {
+    color: #9ca3af;
+  }
+
   .toolbar-button:hover:not(:disabled) {
     background-color: #f3f4f6;
     color: #111827;
+  }
+
+  :global(.dark) .toolbar-button:hover:not(:disabled) {
+    background-color: #374151;
+    color: #f3f4f6;
   }
 
   .toolbar-button:disabled {
@@ -391,6 +400,10 @@
     height: 1.5rem;
     background-color: #e5e7eb;
     margin: 0 0.25rem;
+  }
+
+  :global(.dark) .toolbar-separator {
+    background-color: #4b5563;
   }
 
   .palette-container {
@@ -412,6 +425,12 @@
     z-index: 20;
   }
 
+  :global(.dark) .palette {
+    background-color: #1f2937;
+    border-color: #374151;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  }
+
   .palette-button {
     width: 1.5rem;
     height: 1.5rem;
@@ -419,6 +438,10 @@
     border: 1px solid #e5e7eb;
     cursor: pointer;
     padding: 0;
+  }
+
+  :global(.dark) .palette-button {
+    border-color: #4b5563;
   }
 
   .palette-button:hover {
@@ -432,5 +455,10 @@
     justify-content: center;
     font-size: 0.75rem;
     color: #ef4444;
+  }
+
+  :global(.dark) .reset-button {
+    background-color: #374151;
+    color: #f87171;
   }
 </style>
