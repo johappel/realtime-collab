@@ -10,7 +10,7 @@
       }
   }
 
-  let { data, sourcePosition = Position.Bottom, targetPosition = Position.Top } = $props() as MyNodeProps;
+  let { data, sourcePosition = Position.Bottom, targetPosition = Position.Top, selected } = $props() as MyNodeProps;
   let labelTextarea: HTMLTextAreaElement | undefined = $state();
 
   onMount(() => {
@@ -46,7 +46,7 @@
   }
 </script>
 
-<div class="px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+<div class="px-4 py-2 shadow-md rounded-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 transition-all duration-200">
   <Handle type="target" position={targetPosition} class="w-3 h-3 bg-blue-500!" />
   
   <div class="flex flex-col gap-1">
@@ -60,6 +60,7 @@
           placeholder="Heading"
       ></textarea>
       
+      {#if selected || (data.content && data.content.trim().length > 0)}
       <textarea
           value={data.content || ''}
           oninput={handleContentInput}
@@ -68,6 +69,7 @@
           class="nodrag bg-transparent border-none focus:outline-none w-full text-gray-600 dark:text-gray-300 text-sm resize-none min-h-[60px] text-center font-sans overflow-hidden"
           placeholder="Description..."
       ></textarea>
+      {/if}
   </div>
   
   <Handle type="source" position={sourcePosition} class="w-3 h-3 bg-blue-500!" />
