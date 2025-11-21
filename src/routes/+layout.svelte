@@ -27,6 +27,7 @@
 				<a href="/todo/demo" class:text-blue-600={$page.url.pathname.startsWith('/todo')} class="hover:text-blue-500">Todo</a>
 				<a href="/whiteboard/demo" class:text-blue-600={$page.url.pathname.startsWith('/whiteboard')} class="hover:text-blue-500">Whiteboard</a>
 				<a href="/poll/demo" class:text-blue-600={$page.url.pathname.startsWith('/poll')} class="hover:text-blue-500">Poll</a>
+				<a href="/wiki/demo" class:text-blue-600={$page.url.pathname.startsWith('/wiki')} class="hover:text-blue-500">Wiki</a>
 			</nav>
 		</div>
 

@@ -41,25 +41,6 @@
 
 {#snippet toolbar()}
     <div class="flex gap-2 w-full max-w-2xl items-center">
-        <!-- New Page -->
-        <div class="flex gap-1 items-center">
-            <input
-                type="text"
-                bind:value={newPageTitle}
-                onkeydown={handleKeydown}
-                placeholder="Neue Seite..."
-                class="w-32 sm:w-40 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-            <button
-                onclick={handleCreatePage}
-                class="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-                title="Seite erstellen"
-            >
-                <Plus size={16} />
-            </button>
-        </div>
-
-        <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
         <!-- A-Z Toggle -->
         <button
@@ -81,6 +62,26 @@
                 placeholder="Suche..."
                 class="w-full pl-8 pr-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             />
+        </div>
+        
+        <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+        <!-- New Page -->
+        <div class="flex gap-1 items-center">
+            <input
+                type="text"
+                bind:value={newPageTitle}
+                onkeydown={handleKeydown}
+                placeholder="Neue Seite..."
+                class="w-32 sm:w-40 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <button
+                onclick={handleCreatePage}
+                class="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                title="Seite erstellen"
+            >
+                <Plus size={16} />
+            </button>
         </div>
     </div>
 {/snippet}

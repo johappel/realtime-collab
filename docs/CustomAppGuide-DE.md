@@ -1,28 +1,28 @@
-# Custom App Guide
+# Custom App Guide (Deutsch)
 
-This guide explains how to create a new collaborative application within the `realtime-collab` platform.
+Dieser Leitfaden erklärt, wie man eine neue kollaborative Anwendung innerhalb der `realtime-collab` Plattform erstellt.
 
-## 1. Architecture Overview
+## 1. Architektur-Überblick
 
-Every app follows the same pattern:
-1.  **UI Component (`MyApp.svelte`)**: Pure UI, receives data via Svelte stores.
-2.  **Logic Hook (`useMyAppYDoc.ts`)**: Wraps `useNostrYDoc`, manages Yjs data structures, and exposes Svelte stores.
-3.  **Route (`+page.svelte`)**: Connects the URL parameter `documentId` to the App component and handles the `AppHeader`.
+Jede App folgt demselben Muster:
+1.  **UI-Komponente (`MyApp.svelte`)**: Reine UI, empfängt Daten über Svelte Stores.
+2.  **Logik-Hook (`useMyAppYDoc.ts`)**: Wrappt `useNostrYDoc`, verwaltet Yjs-Datenstrukturen und stellt Svelte Stores bereit.
+3.  **Route (`+page.svelte`)**: Verbindet den URL-Parameter `documentId` mit der App-Komponente und handhabt den `AppHeader`.
 
-## 2. Step-by-Step Implementation
+## 2. Schritt-für-Schritt-Implementierung
 
-### Step 1: Create Directory Structure
-Create a new folder in `src/lib/apps/<app-name>/`.
+### Schritt 1: Ordnerstruktur erstellen
+Erstelle einen neuen Ordner in `src/lib/apps/<app-name>/`.
 
-### Step 2: Implement the Logic Hook (`use<AppName>YDoc.ts`)
+### Schritt 2: Implementiere den Logik-Hook (`use<AppName>YDoc.ts`)
 
-This hook is the brain of your application. It must:
-1.  Initialize Yjs via `useNostrYDoc` (or `useLocalYDoc`).
-2.  Define Yjs data types (Maps, Arrays, Text).
-3.  Sync Yjs data to Svelte stores (for the UI).
-4.  Export actions to modify Yjs data.
+Dieser Hook ist das Gehirn deiner Anwendung. Er muss:
+1.  Yjs über `useNostrYDoc` (oder `useLocalYDoc`) initialisieren.
+2.  Yjs-Datentypen definieren (Maps, Arrays, Text).
+3.  Yjs-Daten mit Svelte Stores synchronisieren (für die UI).
+4.  Aktionen zum Ändern von Yjs-Daten exportieren.
 
-**Template:**
+**Vorlage:**
 
 ```typescript
 import * as Y from 'yjs';
@@ -57,7 +57,7 @@ export function useMyAppYDoc(
     let awareness: any;
     let persistence: any;
 
-    // 1. Initialize Yjs
+    // 1. Yjs initialisieren
     if (mode === 'nostr' && myPubkey && signAndPublish) {
         const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays);
         ydoc = result.ydoc;
@@ -71,11 +71,11 @@ export function useMyAppYDoc(
         persistence = result.persistence;
     }
 
-    // 2. Define Yjs Types
+    // 2. Yjs-Typen definieren
     const yItems = ydoc.getArray<Y.Map<any>>('my-app-items');
     const items = writable<MyItem[]>([]);
 
-    // 3. Sync Logic (Yjs -> Store)
+    // 3. Sync-Logik (Yjs -> Store)
     const sync = () => {
         const newItems = yItems.map(yMap => ({
             id: yMap.get('id'),
@@ -85,9 +85,9 @@ export function useMyAppYDoc(
     };
 
     yItems.observeDeep(sync);
-    sync(); // Initial sync
+    sync(); // Initialer Sync
 
-    // 4. Actions (UI -> Yjs)
+    // 4. Aktionen (UI -> Yjs)
     const addItem = (text: string) => {
         ydoc.transact(() => {
             const yMap = new Y.Map();
@@ -109,18 +109,18 @@ export function useMyAppYDoc(
 }
 ```
 
-### Step 3: Implement the UI Component (`MyApp.svelte`)
+### Schritt 3: Implementiere die UI-Komponente (`MyApp.svelte`)
 
-The UI should be "dumb". It just renders data from stores and calls actions.
+Die UI sollte "dumm" sein. Sie rendert nur Daten aus Stores und ruft Aktionen auf.
 
-**Key Requirements:**
-- Accept `documentId`, `user`, `mode` as props.
-- Call the hook in `onMount`.
-- Handle `cleanup` in `onDestroy`.
-- **Important:** Sync the document title with `ydoc.getMap('metadata').get('title')`.
-- **Important:** Use `appState.mode` for reactive mode switching (not just the prop).
+**Wichtige Anforderungen:**
+- Akzeptiere `documentId`, `user`, `mode` als Props.
+- Rufe den Hook in `onMount` auf.
+- Behandle `cleanup` in `onDestroy` (oder der Rückgabefunktion von `onMount`).
+- **Wichtig:** Synchronisiere den Dokumenttitel mit `ydoc.getMap('metadata').get('title')`.
+- **Wichtig:** Nutze `appState.mode` für reaktives Umschalten des Modus (nicht nur die Prop).
 
-**Template:**
+**Vorlage:**
 
 ```svelte
 <script lang="ts">
@@ -128,13 +128,13 @@ The UI should be "dumb". It just renders data from stores and calls actions.
     import { useMyAppYDoc } from './useMyAppYDoc';
     import { loadConfig } from '$lib/config';
     import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
-    import { appState } from '$lib/stores/appState.svelte'; // Import appState
+    import { appState } from '$lib/stores/appState.svelte'; // appState importieren
     import * as Y from 'yjs';
 
     let { 
         documentId, 
         user, 
-        mode = 'local', // Initial mode from prop
+        mode = 'local', // Initialer Modus aus Prop
         title = $bindable(''),
         awareness = $bindable(null)
     } = $props<{
@@ -148,17 +148,17 @@ The UI should be "dumb". It just renders data from stores and calls actions.
     let hook: ReturnType<typeof useMyAppYDoc>;
     let items = $state([]); 
 
-    // Use an inner async function for onMount to avoid returning a Promise
+    // Nutze eine innere async Funktion für onMount, um die Rückgabe eines Promise zu vermeiden
     onMount(() => {
         let cleanupFn: (() => void) | undefined;
 
         const init = async () => {
-            // 1. Setup Nostr (if needed)
+            // 1. Nostr Setup (falls nötig)
             let pubkey = '';
             let relays: string[] = [];
             let signAndPublish: any = null;
 
-            // Use appState.mode to react to header switches
+            // Nutze appState.mode um auf Header-Switches zu reagieren
             if (mode === 'nostr') {
                 try {
                     const config = await loadConfig();
@@ -170,14 +170,14 @@ The UI should be "dumb". It just renders data from stores and calls actions.
                 }
             }
 
-            // 2. Initialize Hook
+            // 2. Hook initialisieren
             hook = useMyAppYDoc(documentId, mode, user, pubkey, signAndPublish, relays);
             
-            // 3. Bind Stores
+            // 3. Stores binden
             hook.items.subscribe(v => items = v);
             awareness = hook.awareness;
 
-            // 4. Title Sync (Standard Pattern)
+            // 4. Titel-Sync (Standard Pattern)
             const metaMap = hook.ydoc.getMap("metadata");
             const handleMetaUpdate = (event: Y.YMapEvent<any>) => {
                 if (event.transaction.local) return;
@@ -188,7 +188,7 @@ The UI should be "dumb". It just renders data from stores and calls actions.
             };
             metaMap.observe(handleMetaUpdate);
             
-            // Initial Title Sync
+            // Initialer Titel-Sync
             const storedTitle = metaMap.get("title") as string;
             untrack(() => {
                 if (storedTitle !== undefined && storedTitle !== title) {
@@ -211,7 +211,7 @@ The UI should be "dumb". It just renders data from stores and calls actions.
         };
     });
 
-    // Write title changes to Yjs
+    // Titel-Änderungen in Yjs schreiben
     $effect(() => {
         if (!hook?.ydoc) return;
         const metaMap = hook.ydoc.getMap("metadata");
@@ -222,7 +222,7 @@ The UI should be "dumb". It just renders data from stores and calls actions.
     });
 </script>
 
-<!-- UI Implementation -->
+<!-- UI Implementierung -->
 <ul>
     {#each items as item}
         <li>{item.text}</li>
@@ -231,9 +231,9 @@ The UI should be "dumb". It just renders data from stores and calls actions.
 <button onclick={() => hook.addItem("New Item")}>Add</button>
 ```
 
-### Step 4: Create the Route (`src/routes/<app>/[documentId]/+page.svelte`)
+### Schritt 4: Erstelle die Route (`src/routes/<app>/[documentId]/+page.svelte`)
 
-This connects everything.
+Dies verbindet alles miteinander.
 
 ```svelte
 <script lang="ts">
@@ -248,7 +248,7 @@ This connects everything.
     let documentId = $derived(pageStore.params.documentId ?? 'default');
     let docTitle = $state(untrack(() => documentId));
     
-    // Don't use URL param for mode, use appState!
+    // Nutze NICHT den URL-Parameter für den Modus, nutze appState!
     // let mode = $derived(pageStore.url.searchParams.get('mode') === 'nostr' ? 'nostr' : 'local');
     
     let awareness = $state(null);
@@ -280,12 +280,12 @@ This connects everything.
 </div>
 ```
 
-## 3. Common Pitfalls
+## 3. Häufige Fallstricke
 
-1.  **Async `onMount`:** Do NOT return a Promise from `onMount` if you need a cleanup function. Svelte 5 (and 4) expects `void | () => void`. If you use `async () => { ... }`, it returns a Promise. Instead, define an `async` function inside and call it, or use `.then()`.
-2.  **AppHeader Props:** `AppHeader` requires `showHistory` and `maxWidth` props. Ensure you pass them.
-3.  **Mode Switching:** Use `appState.mode` to drive the app mode. The `AppHeader` updates `appState`, not the URL. If you rely on URL params, the header switch won't work. Use `{#key appState.mode}` to re-mount the app when mode changes.
-4.  **Nostr Connections:** The `nostrUtils.ts` library handles connection pooling (`getRelayConnection`). Do not create manual WebSocket connections or use `SimplePool` directly if possible, to avoid conflicts.
-5.  **Missing `untrack` in Title Sync:** Svelte 5 Runes are very sensitive. If you update `title` inside an effect that reads `title`, you get an infinite loop. Use `untrack` for the initial read.
-6.  **Yjs Transactions:** Always wrap data modifications in `ydoc.transact(() => { ... })` to ensure atomicity and correct event firing.
-7.  **Cleanup:** Always implement a `cleanup` function in your hook and call it in `onDestroy` (or the return function of `onMount`). This prevents memory leaks and "ghost" connections.
+1.  **Async `onMount`:** Gib KEIN Promise von `onMount` zurück, wenn du eine Cleanup-Funktion benötigst. Svelte 5 (und 4) erwartet `void | () => void`. Wenn du `async () => { ... }` verwendest, wird ein Promise zurückgegeben. Definiere stattdessen eine `async` Funktion innerhalb und rufe sie auf, oder nutze `.then()`.
+2.  **AppHeader Props:** `AppHeader` benötigt die Props `showHistory` und `maxWidth`. Stelle sicher, dass du sie übergibst.
+3.  **Modus-Umschaltung:** Nutze `appState.mode`, um den App-Modus zu steuern. Der `AppHeader` aktualisiert `appState`, nicht die URL. Wenn du dich auf URL-Parameter verlässt, funktioniert der Header-Switch nicht. Nutze `{#key appState.mode}`, um die App neu zu mounten, wenn sich der Modus ändert.
+4.  **Nostr-Verbindungen:** Die `nostrUtils.ts` Bibliothek handhabt das Connection-Pooling (`getRelayConnection`). Erstelle keine manuellen WebSocket-Verbindungen und nutze `SimplePool` nicht direkt, wenn möglich, um Konflikte zu vermeiden.
+5.  **Fehlendes `untrack` beim Titel-Sync:** Svelte 5 Runes sind sehr empfindlich. Wenn du `title` innerhalb eines Effekts aktualisierst, der `title` liest, erhältst du eine Endlosschleife. Nutze `untrack` für das initiale Lesen.
+6.  **Yjs-Transaktionen:** Wrappe Datenänderungen immer in `ydoc.transact(() => { ... })`, um Atomizität und korrektes Event-Firing sicherzustellen.
+7.  **Cleanup:** Implementiere immer eine `cleanup`-Funktion in deinem Hook und rufe sie in `onDestroy` (oder der Rückgabefunktion von `onMount`) auf. Dies verhindert Speicherlecks und "Geister"-Verbindungen.

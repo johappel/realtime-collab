@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Editor } from "@tiptap/core";
+  import { Editor, Mark, mergeAttributes, InputRule } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
   import Collaboration from "@tiptap/extension-collaboration";
   import CollaborationCaret from "@tiptap/extension-collaboration-caret";
@@ -20,12 +20,62 @@
     awareness,
     user,
     maxWidth = 1024,
+    onNavigate,
   } = $props<{
     fragment: Y.XmlFragment;
     awareness: Awareness;
     user: { name: string; color: string };
     maxWidth?: number;
+    onNavigate?: (pageTitle: string) => void;
   }>();
+
+  const WikiLink = Mark.create({
+    name: 'wikiLink',
+    
+    addAttributes() {
+      return {
+        page: {
+          default: null,
+          parseHTML: element => element.getAttribute('data-page'),
+          renderHTML: attributes => {
+            return {
+              'data-page': attributes.page,
+            }
+          },
+        },
+      }
+    },
+
+    parseHTML() {
+      return [
+        {
+          tag: 'span[data-wiki-link]',
+        },
+      ]
+    },
+
+    renderHTML({ HTMLAttributes }) {
+      return ['span', mergeAttributes(HTMLAttributes, { 'data-wiki-link': '', class: 'wiki-link' }), 0]
+    },
+
+    addInputRules() {
+      return [
+        new InputRule({
+          find: /\[([^\]]+)\]$/,
+          handler: ({ state, range, match }) => {
+            const { tr } = state
+            const start = range.from
+            const end = range.to
+            const text = match[1]
+            
+            if (text) {
+                tr.replaceWith(start, end, state.schema.text(text, [state.schema.marks.wikiLink.create({ page: text })]))
+            }
+          },
+        }),
+      ]
+    },
+  });
 
   let editorElement: HTMLDivElement | null = $state(null);
   let bubbleMenuElement: HTMLDivElement | null = $state(null);
@@ -65,11 +115,23 @@
             color: user.color,
           },
         }),
+        WikiLink,
       ],
       editorProps: {
         attributes: {
           class: "tiptap",
         },
+        handleClick: (view, pos, event) => {
+            const target = event.target as HTMLElement;
+            if (target.closest('.wiki-link')) {
+                const page = target.getAttribute('data-page');
+                if (page && onNavigate) {
+                    onNavigate(page);
+                    return true; 
+                }
+            }
+            return false;
+        }
       },
     });
 
@@ -181,5 +243,18 @@
   
   .separator {
       color: #ccc;
+  }
+
+  :global(.wiki-link) {
+      color: #2563eb;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+  }
+  
+  :global(.wiki-link:hover) {
+      color: #1d4ed8;
+      background-color: rgba(37, 99, 235, 0.1);
+      border-radius: 2px;
   }
 </style>

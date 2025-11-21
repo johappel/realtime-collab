@@ -187,6 +187,19 @@
             wikiHook.setPageTitle(activePageId, target.value);
         }
     }
+
+    function navigateToPage(title: string) {
+        const page = pages.find(p => p.title.toLowerCase() === title.toLowerCase());
+        if (page) {
+            selectPage(page.id);
+        } else {
+            // Create new page
+            if (wikiHook) {
+                const newId = wikiHook.createPage(title);
+                wikiHook.activePageId.set(newId);
+            }
+        }
+    }
 </script>
 
 <div class="wiki-container">
@@ -254,6 +267,7 @@
                     fragment={activeFragment} 
                     awareness={wikiHook.awareness} 
                     user={user}
+                    onNavigate={navigateToPage}
                 />
             </div>
         {:else}
