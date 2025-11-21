@@ -121,11 +121,19 @@
         /* border-radius: 0.5rem; */
     }
 
+    :global(.dark) .presence-list {
+        background: transparent;
+    }
+
     .presence-header {
         display: flex;
         align-items: center;
         gap: 0.375rem;
         color: #6b7280;
+    }
+
+    :global(.dark) .presence-header {
+        color: #9ca3af;
     }
 
     .presence-count {
@@ -152,6 +160,10 @@
         box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
         cursor: default;
         position: relative; /* Wichtig für z-index */
+    }
+
+    :global(.dark) .avatar {
+        border-color: #374151;
     }
 
     @keyframes pulse-ring {

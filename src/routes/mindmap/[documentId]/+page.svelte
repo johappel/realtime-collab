@@ -93,6 +93,7 @@
                 mode={appState.mode}
                 bind:toolbarState={toolbarState}
                 bind:title={docTitle}
+                bind:awareness={awareness}
             />
         {/key}
     </div>

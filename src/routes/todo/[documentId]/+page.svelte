@@ -69,6 +69,7 @@
                 user={appState.user}
                 mode={appState.mode}
                 bind:title={docTitle}
+                bind:awareness={awareness}
             />
         {/key}
     </div>

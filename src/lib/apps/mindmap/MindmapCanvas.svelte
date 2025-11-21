@@ -17,13 +17,15 @@
         user = { name: 'Anon', color: '#ff0000' },
         mode = 'local',
         toolbarState = $bindable({ hasSelection: false, layout: 'vertical' as 'vertical' | 'horizontal' }),
-        title = $bindable('')
+        title = $bindable(''),
+        awareness = $bindable(null)
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
         toolbarState?: { hasSelection: boolean; layout: 'vertical' | 'horizontal' };
         title?: string;
+        awareness?: any;
     }>();
 
     export const colors = [
@@ -90,6 +92,7 @@
         yNodes = result.yNodes;
         yEdges = result.yEdges;
         ydoc = result.ydoc;
+        awareness = result.awareness;
         cleanup = result.cleanup;
 
         // Title Sync Logic
@@ -131,6 +134,24 @@
         
         if (title && title !== storedTitle) {
             metaMap.set("mindmap-title", title);
+        }
+    });
+
+    // Sync user state with awareness
+    $effect(() => {
+        if (awareness && user) {
+            const currentState = awareness.getLocalState() as any;
+            const newUser = {
+                name: user.name,
+                color: user.color,
+            };
+            
+            if (!currentState || 
+                currentState.user?.name !== newUser.name || 
+                currentState.user?.color !== newUser.color) {
+                
+                awareness.setLocalStateField("user", newUser);
+            }
         }
     });
 

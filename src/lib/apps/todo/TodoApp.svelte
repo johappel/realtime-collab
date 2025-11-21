@@ -9,17 +9,20 @@
     import { flip } from 'svelte/animate';
     import { Calendar, User, X } from 'lucide-svelte';
     import * as Y from 'yjs';
+    import { browser } from '$app/environment';
 
     let { 
         documentId, 
         user = { name: 'Anon', color: '#ff0000' },
         mode = 'local',
-        title = $bindable('')
+        title = $bindable(''),
+        awareness = $bindable(null)
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
         title?: string;
+        awareness?: any;
     }>();
 
     let items: Writable<TodoItem[]> = $state(writable([]));
@@ -56,6 +59,7 @@
 
         items = result.items;
         ydoc = result.ydoc;
+        awareness = result.awareness;
         cleanup = result.cleanup;
         actions = {
             addItem: result.addItem,
@@ -109,6 +113,24 @@
         }
     });
 
+    // Sync user state with awareness
+    $effect(() => {
+        if (awareness && user) {
+            const currentState = awareness.getLocalState() as any;
+            const newUser = {
+                name: user.name,
+                color: user.color,
+            };
+            
+            if (!currentState || 
+                currentState.user?.name !== newUser.name || 
+                currentState.user?.color !== newUser.color) {
+                
+                awareness.setLocalStateField("user", newUser);
+            }
+        }
+    });
+
     // Sync store to local state, but pause during drag
     $effect(() => {
         const currentItems = $items;
@@ -122,7 +144,7 @@
     });
 
     export function addItem(text: string) {
-        if (text.trim()) {
+        if (text.trim() && actions?.addItem) {
             actions.addItem(text.trim());
         }
     }
@@ -187,6 +209,7 @@
 </script>
 
 <div class="max-w-2xl mx-auto p-6">
+    {#if browser}
     <div 
         class="space-y-2"
         use:dndzone={{items: localItems, flipDurationMs: 300, dropTargetStyle: {}}}
@@ -287,4 +310,5 @@
             </div>
         {/if}
     </div>
+    {/if}
 </div>
