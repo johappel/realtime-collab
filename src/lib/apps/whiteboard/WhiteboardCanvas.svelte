@@ -44,9 +44,12 @@
     let draggingCardId: string | null = null;
     let draggingFrameId: string | null = null;
     let resizingFrameId: string | null = null;
+    let attachedCardIds: Set<string> = new Set();
     let dragOffset = { x: 0, y: 0 };
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
     
+    const MAX_CARD_HEIGHT = 300;
+
     // Canvas Ref
     let svgElement: SVGSVGElement;
 
@@ -152,10 +155,29 @@
                 y: y - dragOffset.y
             });
         } else if (draggingFrameId) {
-            actions.updateFrame(draggingFrameId, {
-                x: x - dragOffset.x,
-                y: y - dragOffset.y
-            });
+            const frame = $frames.find(f => f.id === draggingFrameId);
+            if (frame) {
+                const newX = x - dragOffset.x;
+                const newY = y - dragOffset.y;
+                const dx = newX - frame.x;
+                const dy = newY - frame.y;
+
+                actions.updateFrame(draggingFrameId, {
+                    x: newX,
+                    y: newY
+                });
+
+                // Move attached cards
+                attachedCardIds.forEach(cardId => {
+                    const card = $cards.find(c => c.id === cardId);
+                    if (card) {
+                        actions.updateCard(cardId, {
+                            x: card.x + dx,
+                            y: card.y + dy
+                        });
+                    }
+                });
+            }
         } else if (resizingFrameId) {
             const dx = x - resizeStart.x;
             const dy = y - resizeStart.y;
@@ -199,6 +221,17 @@
             x: x - frame.x,
             y: y - frame.y
         };
+
+        // Find attached cards (center point inside frame)
+        attachedCardIds.clear();
+        $cards.forEach(card => {
+            const cx = card.x + card.width / 2;
+            const cy = card.y + card.height / 2;
+            if (cx >= frame.x && cx <= frame.x + frame.width &&
+                cy >= frame.y && cy <= frame.y + frame.height) {
+                attachedCardIds.add(card.id);
+            }
+        });
     }
 
     function handleFrameResizeStart(e: MouseEvent | TouchEvent, frame: WhiteboardFrame) {
@@ -227,7 +260,7 @@
     }
 
     function updateCardHeight(id: string, height: number) {
-        actions.updateCard(id, { height: Math.max(150, height + 40) }); // +40 for padding/header
+        actions.updateCard(id, { height: Math.min(MAX_CARD_HEIGHT, Math.max(150, height + 40)) }); // +40 for padding/header
     }
 
     function pointsToPath(points: number[][]): string {
@@ -438,7 +471,7 @@
                         </div>
 
                         <textarea
-                            class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
+                            class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0 overflow-y-auto"
                             value={card.text}
                             oninput={(e) => {
                                 actions.updateCard(card.id, { text: e.currentTarget.value });
