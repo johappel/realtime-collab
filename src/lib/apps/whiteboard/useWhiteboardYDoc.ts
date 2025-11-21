@@ -11,8 +11,19 @@ export interface DrawPath {
     isComplete: boolean;
 }
 
+export interface WhiteboardCard {
+    id: string;
+    x: number;
+    y: number;
+    text: string;
+    color: string;
+    width: number;
+    height: number;
+}
+
 export interface UseWhiteboardYDocResult {
     paths: Writable<DrawPath[]>;
+    cards: Writable<WhiteboardCard[]>;
     ydoc: Y.Doc;
     provider: any;
     awareness: any;
@@ -20,6 +31,9 @@ export interface UseWhiteboardYDocResult {
     startPath: (x: number, y: number, color: string, width: number) => string;
     updatePath: (id: string, x: number, y: number) => void;
     endPath: (id: string) => void;
+    addCard: (x: number, y: number, color: string) => void;
+    updateCard: (id: string, updates: Partial<WhiteboardCard>) => void;
+    deleteCard: (id: string) => void;
     clearBoard: () => void;
     undo: () => void;
 }
@@ -52,7 +66,10 @@ export function useWhiteboardYDoc(
 
     // Yjs Data Structure: Array of Maps
     const yPaths = ydoc.getArray<Y.Map<any>>('whiteboard-paths');
+    const yCards = ydoc.getMap<Y.Map<any>>('whiteboard-cards'); // Using Map for cards for easier ID access
+    
     const paths = writable<DrawPath[]>([]);
+    const cards = writable<WhiteboardCard[]>([]);
 
     const syncPaths = () => {
         const newPaths = yPaths.map(yMap => ({
@@ -65,8 +82,26 @@ export function useWhiteboardYDoc(
         paths.set(newPaths);
     };
 
+    const syncCards = () => {
+        const newCards: WhiteboardCard[] = [];
+        yCards.forEach((yMap) => {
+            newCards.push({
+                id: yMap.get('id'),
+                x: yMap.get('x'),
+                y: yMap.get('y'),
+                text: yMap.get('text'),
+                color: yMap.get('color'),
+                width: yMap.get('width'),
+                height: yMap.get('height')
+            });
+        });
+        cards.set(newCards);
+    };
+
     yPaths.observeDeep(syncPaths);
+    yCards.observeDeep(syncCards);
     syncPaths();
+    syncCards();
 
     const startPath = (x: number, y: number, color: string, width: number): string => {
         const id = crypto.randomUUID();
@@ -122,9 +157,45 @@ export function useWhiteboardYDoc(
         });
     };
 
+    const addCard = (x: number, y: number, color: string) => {
+        ydoc.transact(() => {
+            const id = crypto.randomUUID();
+            const yMap = new Y.Map();
+            yMap.set('id', id);
+            yMap.set('x', x);
+            yMap.set('y', y);
+            yMap.set('text', '');
+            yMap.set('color', color);
+            yMap.set('width', 200);
+            yMap.set('height', 150);
+            yCards.set(id, yMap);
+        });
+    };
+
+    const updateCard = (id: string, updates: Partial<WhiteboardCard>) => {
+        ydoc.transact(() => {
+            const yMap = yCards.get(id);
+            if (yMap) {
+                if (updates.x !== undefined) yMap.set('x', updates.x);
+                if (updates.y !== undefined) yMap.set('y', updates.y);
+                if (updates.text !== undefined) yMap.set('text', updates.text);
+                if (updates.color !== undefined) yMap.set('color', updates.color);
+                if (updates.width !== undefined) yMap.set('width', updates.width);
+                if (updates.height !== undefined) yMap.set('height', updates.height);
+            }
+        });
+    };
+
+    const deleteCard = (id: string) => {
+        ydoc.transact(() => {
+            yCards.delete(id);
+        });
+    };
+
     const clearBoard = () => {
         ydoc.transact(() => {
             yPaths.delete(0, yPaths.length);
+            yCards.clear();
         });
     };
 
@@ -138,6 +209,7 @@ export function useWhiteboardYDoc(
 
     const cleanup = () => {
         yPaths.unobserveDeep(syncPaths);
+        yCards.unobserveDeep(syncCards);
         if (provider && typeof provider.destroy === 'function') provider.destroy();
         if (awareness) awareness.destroy();
         if (persistence && typeof persistence.destroy === 'function') persistence.destroy();
@@ -146,6 +218,7 @@ export function useWhiteboardYDoc(
 
     return {
         paths,
+        cards,
         ydoc,
         provider,
         awareness,
@@ -153,6 +226,9 @@ export function useWhiteboardYDoc(
         startPath,
         updatePath,
         endPath,
+        addCard,
+        updateCard,
+        deleteCard,
         clearBoard,
         undo
     };
