@@ -341,3 +341,9 @@
         </div>
     </div>
 </div>
+
+<style>
+    :global(.svelte-flow__edge-path) {
+        stroke-width: 3px;
+    }
+</style>
