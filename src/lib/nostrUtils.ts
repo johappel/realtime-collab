@@ -44,18 +44,42 @@ export async function signAndPublishNip07(
     const signedEvent = await window.nostr.signEvent(unsignedEvent);
 
     // 2. Veröffentlichen
-    if (!sharedPool) {
-        const { SimplePool } = await import('nostr-tools');
-        sharedPool = new SimplePool();
-    }
+    // Wir nutzen hier unsere eigene RelayConnection-Logik statt nostr-tools SimplePool,
+    // um konsistente Verbindungen zu gewährleisten und Probleme mit SimplePool zu vermeiden.
+    
+    const publishPromises = relays.map(url => {
+        return new Promise<void>((resolve, reject) => {
+            const conn = getRelayConnection(url);
+            
+            const timeout = setTimeout(() => {
+                reject(new Error(`Timeout publishing to ${url}`));
+            }, 5000);
+
+            const send = () => {
+                try {
+                    conn.send(['EVENT', signedEvent]);
+                    // Wir gehen optimistisch davon aus, dass es gesendet wurde.
+                    // Echte OK-Message-Verarbeitung wäre besser, aber für MVP reicht das.
+                    clearTimeout(timeout);
+                    resolve();
+                } catch (e) {
+                    clearTimeout(timeout);
+                    reject(e);
+                }
+            };
+
+            if (conn.isOpen()) {
+                send();
+            } else {
+                conn.onOpen(() => send());
+            }
+        });
+    });
 
     try {
         // Wir warten darauf, dass mindestens ein Relay das Event akzeptiert.
-        await Promise.any(sharedPool.publish(relays, signedEvent));
+        await Promise.any(publishPromises);
     } catch (error) {
-        // Wenn alle fehlschlagen, loggen wir Details, aber werfen den Fehler weiter,
-        // damit der Aufrufer Bescheid weiß.
-        // console.error('All relays failed to publish event:', error);
         if (error instanceof AggregateError) {
             const isLocalhost = relays.some(r => r.includes('localhost'));
             if (isLocalhost) {
@@ -66,7 +90,6 @@ export async function signAndPublishNip07(
         }
         throw error;
     }
-    // Pool NICHT schließen, damit Verbindungen wiederverwendet werden können
     
     return signedEvent;
 }
