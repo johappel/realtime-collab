@@ -30,6 +30,7 @@
 
     // Local state for new option input
     let newOptionText = $state('');
+    let showSettings = $state(false);
 
     onMount(async () => {
         let pubkey = '';
@@ -95,55 +96,67 @@
 
 <div class="max-w-2xl mx-auto p-6 bg-white dark:bg-gray-900 min-h-screen">
     <!-- Header / Question -->
-    <div class="mb-8">
+    <div class="mb-8 flex items-start gap-4">
         <input 
             type="text" 
-            class="w-full text-3xl font-bold bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 outline-none transition-colors text-center text-gray-900 dark:text-white placeholder-gray-400"
+            class="grow text-3xl font-bold bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 outline-none transition-colors text-center text-gray-900 dark:text-white placeholder-gray-400"
             placeholder="Stelle eine Frage..."
             value={$question}
             oninput={(e) => actions.setQuestion(e.currentTarget.value)}
         />
+        <button 
+            onclick={() => showSettings = !showSettings}
+            class="mt-2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+            title="Einstellungen"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
     </div>
 
     <!-- Settings Toggles -->
-    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-wrap gap-4 text-sm">
-        <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
-            <input 
-                type="checkbox" 
-                checked={$settings.multiSelect} 
-                onchange={(e) => actions.updateSettings({ multiSelect: e.currentTarget.checked })}
-                class="rounded text-blue-600 focus:ring-blue-500"
-            />
-            Mehrfachauswahl
-        </label>
-        
-        <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
-            <input 
-                type="checkbox" 
-                checked={$settings.anonymous} 
-                onchange={(e) => actions.updateSettings({ anonymous: e.currentTarget.checked })}
-                class="rounded text-blue-600 focus:ring-blue-500"
-            />
-            Anonyme Abstimmung
-        </label>
+    {#if showSettings}
+        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex flex-wrap gap-4 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
+            <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
+                <input 
+                    type="checkbox" 
+                    checked={$settings.multiSelect} 
+                    onchange={(e) => actions.updateSettings({ multiSelect: e.currentTarget.checked })}
+                    class="rounded text-blue-600 focus:ring-blue-500"
+                />
+                Mehrfachauswahl
+            </label>
+            
+            <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
+                <input 
+                    type="checkbox" 
+                    checked={$settings.anonymous} 
+                    onchange={(e) => actions.updateSettings({ anonymous: e.currentTarget.checked })}
+                    class="rounded text-blue-600 focus:ring-blue-500"
+                />
+                Anonyme Abstimmung
+            </label>
 
-        <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
-            <input 
-                type="checkbox" 
-                checked={$settings.allowUserOptions} 
-                onchange={(e) => actions.updateSettings({ allowUserOptions: e.currentTarget.checked })}
-                class="rounded text-blue-600 focus:ring-blue-500"
-            />
-            Eigene Optionen erlauben
-        </label>
+            <label class="flex items-center gap-2 cursor-pointer dark:text-gray-300">
+                <input 
+                    type="checkbox" 
+                    checked={$settings.allowUserOptions} 
+                    onchange={(e) => actions.updateSettings({ allowUserOptions: e.currentTarget.checked })}
+                    class="rounded text-blue-600 focus:ring-blue-500"
+                />
+                Eigene Optionen erlauben
+            </label>
 
-        <button 
-            onclick={() => actions.resetVotes()}
-            class="ml-auto text-red-600 hover:text-red-700 font-medium"
-        >
-            Reset Votes
-        </button>
-    </div>
+            <button 
+                onclick={() => actions.resetVotes()}
+                class="ml-auto text-red-600 hover:text-red-700 font-medium"
+            >
+                Reset Votes
+            </button>
+        </div>
+    {/if}
 
     <!-- Options List -->
     <div class="space-y-4">
@@ -164,7 +177,7 @@
                 <div class="relative p-4 flex items-center gap-4">
                     <button 
                         onclick={() => actions.vote(option.id, myUserId)}
-                        class="flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors
+                        class="shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors
                             {isVoted 
                                 ? 'bg-blue-500 border-blue-500 text-white' 
                                 : 'border-gray-400 hover:border-blue-500 dark:border-gray-500'}"
@@ -176,7 +189,7 @@
                         {/if}
                     </button>
 
-                    <div class="flex-grow min-w-0">
+                    <div class="grow min-w-0">
                         <div class="flex justify-between items-baseline mb-1">
                             <span class="font-medium text-gray-900 dark:text-white truncate">{option.text}</span>
                             <span class="text-sm text-gray-500 dark:text-gray-400 font-mono">{option.votes.length} ({percentage}%)</span>
@@ -187,14 +200,14 @@
                             <div class="flex -space-x-2 overflow-hidden pt-1">
                                 {#each option.votes.slice(0, 8) as voterId}
                                     <div 
-                                        class="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-900 bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 select-none"
+                                        class="h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-900 bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 select-none"
                                         title={voterId}
                                     >
                                         {voterId.slice(0, 2).toUpperCase()}
                                     </div>
                                 {/each}
                                 {#if option.votes.length > 8}
-                                    <div class="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-900 bg-gray-100 flex items-center justify-center text-xs text-gray-500">
+                                    <div class="h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-900 bg-gray-100 flex items-center justify-center text-xs text-gray-500">
                                         +{option.votes.length - 8}
                                     </div>
                                 {/if}
@@ -225,7 +238,7 @@
                 bind:value={newOptionText}
                 onkeydown={(e) => e.key === 'Enter' && handleAddOption()}
                 placeholder="Neue Option hinzufügen..."
-                class="flex-grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                class="grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
             />
             <button 
                 onclick={handleAddOption}
