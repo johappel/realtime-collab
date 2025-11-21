@@ -97,6 +97,8 @@
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     padding: 0 1rem;
+    position: relative;
+    z-index: 50;
   }
 
   .header-left {
