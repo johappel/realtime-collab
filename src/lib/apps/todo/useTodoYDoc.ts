@@ -8,6 +8,8 @@ export interface TodoItem {
     text: string;
     completed: boolean;
     createdAt: number;
+    assignee?: { name: string; color: string; pubkey?: string };
+    dueDate?: number;
 }
 
 export interface UseTodoYDocResult {
@@ -22,6 +24,8 @@ export interface UseTodoYDocResult {
     updateItemText: (id: string, text: string) => void;
     moveItem: (fromIndex: number, toIndex: number) => void;
     reorderItems: (newOrderIds: string[]) => void;
+    assignUser: (id: string, user: { name: string; color: string; pubkey?: string } | null) => void;
+    setDueDate: (id: string, date: number | null) => void;
 }
 
 export function useTodoYDoc(
@@ -70,7 +74,9 @@ export function useTodoYDoc(
                     id: yMap.get('id'),
                     text: yMap.get('text'),
                     completed: yMap.get('completed'),
-                    createdAt: yMap.get('createdAt')
+                    createdAt: yMap.get('createdAt'),
+                    assignee: yMap.get('assignee'),
+                    dueDate: yMap.get('dueDate')
                 });
             }
         });
@@ -131,6 +137,32 @@ export function useTodoYDoc(
         });
     };
 
+    const assignUser = (id: string, user: { name: string; color: string; pubkey?: string } | null) => {
+        ydoc.transact(() => {
+            const map = yItemsMap.get(id);
+            if (map) {
+                if (user) {
+                    map.set('assignee', user);
+                } else {
+                    map.delete('assignee');
+                }
+            }
+        });
+    };
+
+    const setDueDate = (id: string, date: number | null) => {
+        ydoc.transact(() => {
+            const map = yItemsMap.get(id);
+            if (map) {
+                if (date) {
+                    map.set('dueDate', date);
+                } else {
+                    map.delete('dueDate');
+                }
+            }
+        });
+    };
+
     const moveItem = (fromIndex: number, toIndex: number) => {
         ydoc.transact(() => {
             if (fromIndex === toIndex) return;
@@ -177,6 +209,8 @@ export function useTodoYDoc(
         deleteItem,
         updateItemText,
         moveItem,
-        reorderItems
+        reorderItems,
+        assignUser,
+        setDueDate
     };
 }

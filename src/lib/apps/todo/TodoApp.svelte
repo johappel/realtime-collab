@@ -7,6 +7,7 @@
     import { theme } from '$lib/stores/theme.svelte';
     import { dndzone, type DndEvent } from 'svelte-dnd-action';
     import { flip } from 'svelte/animate';
+    import { Calendar, User, X } from 'lucide-svelte';
 
     let { 
         documentId, 
@@ -57,7 +58,9 @@
             toggleItem: result.toggleItem,
             deleteItem: result.deleteItem,
             updateItemText: result.updateItemText,
-            reorderItems: result.reorderItems
+            reorderItems: result.reorderItems,
+            assignUser: result.assignUser,
+            setDueDate: result.setDueDate
         };
     });
 
@@ -81,7 +84,8 @@
     }
 
     function handleKeydown(e: KeyboardEvent) {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
             handleAdd();
         }
     }
@@ -96,6 +100,39 @@
         localItems = e.detail.items;
         if (actions.reorderItems) {
             actions.reorderItems(localItems.map(i => i.id));
+        }
+    }
+
+    function autoResize(el: HTMLTextAreaElement) {
+        const resize = () => {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        };
+        el.addEventListener('input', resize);
+        // Initial resize
+        setTimeout(resize, 0);
+        
+        return {
+            destroy() {
+                el.removeEventListener('input', resize);
+            }
+        };
+    }
+
+    function toggleAssign(item: TodoItem) {
+        if (item.assignee && item.assignee.name === user.name) {
+            actions.assignUser(item.id, null);
+        } else {
+            actions.assignUser(item.id, user);
+        }
+    }
+
+    function handleDateChange(id: string, e: Event) {
+        const input = e.target as HTMLInputElement;
+        if (input.value) {
+            actions.setDueDate(id, new Date(input.value).getTime());
+        } else {
+            actions.setDueDate(id, null);
         }
     }
 </script>
@@ -126,29 +163,80 @@
         {#each localItems as item (item.id)}
             <div 
                 animate:flip={{duration: 300}}
-                class="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 group cursor-move"
+                class="flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 group"
             >
-                <div class="text-gray-400 dark:text-gray-600 cursor-grab active:cursor-grabbing">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                <div class="flex items-start gap-3 p-3">
+                    <div class="text-gray-400 dark:text-gray-600 cursor-grab active:cursor-grabbing mt-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                    </div>
+                    <input
+                        type="checkbox"
+                        checked={item.completed}
+                        onchange={() => actions.toggleItem(item.id)}
+                        class="w-5 h-5 mt-1.5 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    
+                    <textarea
+                        use:autoResize
+                        value={item.text}
+                        oninput={(e) => actions.updateItemText(item.id, e.currentTarget.value)}
+                        rows="1"
+                        class="flex-1 bg-transparent border-none focus:ring-0 p-0 text-lg resize-none overflow-hidden {item.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}"
+                    ></textarea>
+
+                    <button
+                        onclick={() => actions.deleteItem(item.id)}
+                        class="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all"
+                        aria-label="Delete task"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
                 </div>
-                <input
-                    type="checkbox"
-                    checked={item.completed}
-                    onchange={() => actions.toggleItem(item.id)}
-                    class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span 
-                    class="flex-1 text-lg {item.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}"
-                >
-                    {item.text}
-                </span>
-                <button
-                    onclick={() => actions.deleteItem(item.id)}
-                    class="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all"
-                    aria-label="Delete task"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                </button>
+
+                <!-- Metadata Row -->
+                <div class="flex items-center gap-4 px-3 pb-2 pl-11 text-sm text-gray-500">
+                    <!-- Assignee -->
+                    <button 
+                        class="flex items-center gap-1.5 hover:text-blue-600 transition-colors"
+                        onclick={() => toggleAssign(item)}
+                        title={item.assignee ? `Assigned to ${item.assignee.name}` : 'Assign to me'}
+                    >
+                        {#if item.assignee}
+                            <div 
+                                class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold"
+                                style="background-color: {item.assignee.color}"
+                            >
+                                {item.assignee.name[0].toUpperCase()}
+                            </div>
+                            <span>{item.assignee.name}</span>
+                        {:else}
+                            <User size={14} />
+                            <span>Assign</span>
+                        {/if}
+                    </button>
+
+                    <!-- Due Date -->
+                    <div class="flex items-center gap-1.5 relative group/date">
+                        <Calendar size={14} class={item.dueDate ? 'text-blue-600' : ''} />
+                        <input 
+                            type="date" 
+                            class="absolute inset-0 opacity-0 cursor-pointer"
+                            value={item.dueDate ? new Date(item.dueDate).toISOString().split('T')[0] : ''}
+                            onchange={(e) => handleDateChange(item.id, e)}
+                        />
+                        <span class={item.dueDate ? 'text-blue-600' : ''}>
+                            {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'Due Date'}
+                        </span>
+                        {#if item.dueDate}
+                            <button 
+                                class="ml-1 hover:text-red-500"
+                                onclick={(e) => { e.stopPropagation(); actions.setDueDate(item.id, null); }}
+                            >
+                                <X size={12} />
+                            </button>
+                        {/if}
+                    </div>
+                </div>
             </div>
         {/each}
         
