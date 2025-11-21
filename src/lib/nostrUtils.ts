@@ -123,26 +123,29 @@ export function getRandomColor(str: string): string {
     return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
-// Minimal Native Relay Implementation to bypass library issues
-export class NativeRelay {
-    private ws: WebSocket;
-    private url: string;
-    private subId: string;
-    private onEvent: (event: Event) => void;
-    private onEOSE?: () => void;
-    private debug: boolean;
+// Relay Connection Pool to ensure single persistent connection per URL
+class RelayConnection {
+    public url: string;
+    private ws: WebSocket | null = null;
+    private subscriptions: Map<string, { onEvent: (e: Event) => void, onEOSE?: () => void }> = new Map();
+    private openListeners: Set<() => void> = new Set();
+    private reconnectTimer: any = null;
+    private debug: boolean = false;
 
-    constructor(url: string, onEvent: (event: Event) => void, debug: boolean = false, onEOSE?: () => void) {
+    constructor(url: string) {
         this.url = url;
-        this.onEvent = onEvent;
-        this.onEOSE = onEOSE;
-        this.debug = debug;
-        this.subId = 'sub-' + Math.random().toString(36).substring(2);
-        this.ws = new WebSocket(url);
+        this.connect();
+    }
+
+    private connect() {
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+        
+        if (this.debug) console.log(`[RelayConnection] Connecting to ${this.url}`);
+        this.ws = new WebSocket(this.url);
         
         this.ws.onopen = () => {
-            if (this.debug) console.log(`[NativeRelay] Connected to ${url}`);
-            this.subscribe();
+            console.log(`[RelayConnection] Connected to ${this.url}`);
+            this.openListeners.forEach(cb => cb());
         };
 
         this.ws.onmessage = (msg) => {
@@ -152,43 +155,115 @@ export class NativeRelay {
                 
                 const [type, subId, payload] = data;
                 
-                if (type === 'EVENT' && subId === this.subId) {
-                    if (this.debug) console.log(`[NativeRelay] Received EVENT from ${url}`, payload.id);
-                    this.onEvent(payload as Event);
-                } else if (type === 'EOSE' && subId === this.subId) {
-                    if (this.debug) console.log(`[NativeRelay] EOSE from ${url}`);
-                    if (this.onEOSE) this.onEOSE();
+                if (type === 'EVENT') {
+                    const sub = this.subscriptions.get(subId);
+                    if (sub) sub.onEvent(payload as Event);
+                } else if (type === 'EOSE') {
+                    const sub = this.subscriptions.get(subId);
+                    if (sub && sub.onEOSE) sub.onEOSE();
                 } else if (type === 'NOTICE') {
-                    console.warn(`[NativeRelay] NOTICE from ${url}:`, subId); // subId is message here
+                    console.warn(`[RelayConnection] NOTICE from ${this.url}:`, subId);
                 }
             } catch (e) {
-                console.error(`[NativeRelay] Failed to parse message from ${url}`, e);
+                console.error(`[RelayConnection] Failed to parse message from ${this.url}`, e);
             }
         };
 
-        this.ws.onerror = (err) => console.error(`[NativeRelay] Error on ${url}`, err);
+        this.ws.onerror = (err) => {
+            // console.error(`[RelayConnection] Error on ${this.url}`, err);
+        };
+        
         this.ws.onclose = () => {
-            if (this.debug) console.log(`[NativeRelay] Closed connection to ${url}`);
+            console.log(`[RelayConnection] Disconnected from ${this.url}`);
+            // Auto-reconnect after delay
+            if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = setTimeout(() => this.connect(), 3000);
         };
     }
 
+    public subscribe(subId: string, handlers: { onEvent: (e: Event) => void, onEOSE?: () => void }) {
+        this.subscriptions.set(subId, handlers);
+    }
+
+    public unsubscribe(subId: string) {
+        this.subscriptions.delete(subId);
+    }
+
+    public send(data: any[]) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        }
+    }
+    
+    public isOpen() {
+        return this.ws && this.ws.readyState === WebSocket.OPEN;
+    }
+
+    public onOpen(cb: () => void) {
+        if (this.isOpen()) {
+            cb();
+        }
+        this.openListeners.add(cb);
+    }
+    
+    public offOpen(cb: () => void) {
+        this.openListeners.delete(cb);
+    }
+}
+
+const relayPool = new Map<string, RelayConnection>();
+
+function getRelayConnection(url: string): RelayConnection {
+    if (!relayPool.has(url)) {
+        relayPool.set(url, new RelayConnection(url));
+    }
+    return relayPool.get(url)!;
+}
+
+// Minimal Native Relay Implementation that uses the shared pool
+export class NativeRelay {
+    private connection: RelayConnection;
+    private subId: string;
+    private openListener?: () => void;
+    private debug: boolean;
+
+    constructor(url: string, onEvent: (event: Event) => void, debug: boolean = false, onEOSE?: () => void) {
+        this.connection = getRelayConnection(url);
+        this.debug = debug;
+        this.subId = 'sub-' + Math.random().toString(36).substring(2);
+        
+        // Register subscription immediately
+        this.connection.subscribe(this.subId, { onEvent, onEOSE });
+    }
+
     public subscribe(filter?: any) {
-        if (this.ws.readyState !== WebSocket.OPEN) return;
-        // Default filter logic handled by caller via sendReq
+        // No-op, subscription is handled in constructor/sendReq
     }
 
     public sendReq(filter: any) {
-        if (this.ws.readyState !== WebSocket.OPEN) {
-            // Retry once connected
-            this.ws.addEventListener('open', () => this.sendReq(filter), { once: true });
-            return;
-        }
         const req = ["REQ", this.subId, filter];
-        if (this.debug) console.log(`[NativeRelay] Sending REQ to ${this.url}`, req);
-        this.ws.send(JSON.stringify(req));
+        
+        const send = () => {
+             if (this.debug) console.log(`[NativeRelay] Sending REQ to ${this.connection.url}`, req);
+             this.connection.send(req);
+        };
+
+        // If we already have a listener, remove it to avoid duplicates if sendReq is called multiple times
+        if (this.openListener) {
+            this.connection.offOpen(this.openListener);
+        }
+
+        this.openListener = send;
+        this.connection.onOpen(this.openListener);
     }
 
     public close() {
-        this.ws.close();
+        if (this.connection.isOpen()) {
+             this.connection.send(["CLOSE", this.subId]);
+        }
+        this.connection.unsubscribe(this.subId);
+        if (this.openListener) {
+            this.connection.offOpen(this.openListener);
+        }
     }
 }
