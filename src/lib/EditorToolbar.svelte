@@ -22,6 +22,9 @@
   import ArrowUp from "lucide-svelte/icons/arrow-up";
   import ArrowLeft from "lucide-svelte/icons/arrow-left";
   import Delete from "lucide-svelte/icons/delete";
+  import Image from "lucide-svelte/icons/image";
+  import Link from "lucide-svelte/icons/link";
+  import Youtube from "lucide-svelte/icons/youtube";
 
   let { editor } = $props<{ editor: Editor | null }>();
 
@@ -74,6 +77,42 @@
 
   function addTable() {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  }
+
+  function addImage() {
+    const url = window.prompt('URL');
+    if (url) {
+      editor?.chain().focus().setImage({ src: url }).run();
+    }
+  }
+
+  function addLink() {
+    const previousUrl = editor?.getAttributes('link').href;
+    const url = window.prompt('URL', previousUrl);
+
+    // cancelled
+    if (url === null) {
+      return;
+    }
+
+    // empty
+    if (url === '') {
+      editor?.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    // update link
+    editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  }
+
+  function addYoutube() {
+    const url = window.prompt('Enter YouTube URL');
+
+    if (url) {
+      editor?.commands.setYoutubeVideo({
+        src: url,
+      });
+    }
   }
 </script>
 
@@ -259,6 +298,40 @@
   <button
     type="button"
     class="toolbar-button"
+    aria-label="Link"
+    title="Link"
+    onclick={addLink}
+    disabled={!editor}
+    class:active={editor?.isActive('link')}
+  >
+    <Link size={18} />
+  </button>
+  <button
+    type="button"
+    class="toolbar-button"
+    aria-label="Image"
+    title="Image"
+    onclick={addImage}
+    disabled={!editor}
+  >
+    <Image size={18} />
+  </button>
+  <button
+    type="button"
+    class="toolbar-button"
+    aria-label="YouTube"
+    title="YouTube"
+    onclick={addYoutube}
+    disabled={!editor}
+  >
+    <Youtube size={18} />
+  </button>
+
+  <span class="toolbar-separator" aria-hidden="true"></span>
+
+  <button
+    type="button"
+    class="toolbar-button"
     aria-label="Insert Table"
     title="Insert Table"
     onclick={addTable}
@@ -385,8 +458,18 @@
     color: #111827;
   }
 
+  .toolbar-button.active {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+
   :global(.dark) .toolbar-button:hover:not(:disabled) {
     background-color: #374151;
+    color: #f3f4f6;
+  }
+
+  :global(.dark) .toolbar-button.active {
+    background-color: #4b5563;
     color: #f3f4f6;
   }
 

@@ -29,6 +29,9 @@ importers:
       '@tiptap/extension-highlight':
         specifier: ^3.11.0
         version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))
+      '@tiptap/extension-image':
+        specifier: ^3.11.0
+        version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))
       '@tiptap/extension-link':
         specifier: ^3.11.0
         version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0)
@@ -45,6 +48,9 @@ importers:
         specifier: ^3.11.0
         version: 3.11.0(@tiptap/extension-table@3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))(@tiptap/pm@3.11.0))
       '@tiptap/extension-text-style':
+        specifier: ^3.11.0
+        version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))
+      '@tiptap/extension-youtube':
         specifier: ^3.11.0
         version: 3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))
       '@tiptap/html':
@@ -861,6 +867,11 @@ packages:
       '@tiptap/core': ^3.11.0
       '@tiptap/pm': ^3.11.0
 
+  '@tiptap/extension-image@3.11.0':
+    resolution: {integrity: sha512-AFH1kn5Cpe5D89fP4MKN98N8pwmB3s4Rn8jq6rk3QVaAwdrxwxbAqUI1sX7UPFzaq9eNcHgmGLaDL+UTspSW8g==}
+    peerDependencies:
+      '@tiptap/core': ^3.11.0
+
   '@tiptap/extension-italic@3.11.0':
     resolution: {integrity: sha512-WP6wL2b//8bLVdeUCWOpYA7nUStvrAMMD0nRn0F9CEW+l7vH6El2PZFhHmJ9uqXo5MnyugBpARiwgxfoAlef5w==}
     peerDependencies:
@@ -936,6 +947,11 @@ packages:
 
   '@tiptap/extension-underline@3.11.0':
     resolution: {integrity: sha512-D3PsS/84RlQKFjd5eerMIUioC0mNh4yy1RRV/WbXx6ugu+6T+0hT42gNk9Ap8pDsVQZCk0SHfDyBEUFC2KOwKw==}
+    peerDependencies:
+      '@tiptap/core': ^3.11.0
+
+  '@tiptap/extension-youtube@3.11.0':
+    resolution: {integrity: sha512-BEPFdA+wrNZer4Ewp5lqOAKx4wTGVfX7ep+UCxnxtMpfpIF1TaNZe3Dt89Wh6ZgV/TnSsA/boB0Q4UXn90LVIQ==}
     peerDependencies:
       '@tiptap/core': ^3.11.0
 
@@ -2846,6 +2862,10 @@ snapshots:
       '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
       '@tiptap/pm': 3.11.0
 
+  '@tiptap/extension-image@3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))':
+    dependencies:
+      '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
+
   '@tiptap/extension-italic@3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))':
     dependencies:
       '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
@@ -2907,6 +2927,10 @@ snapshots:
       '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
 
   '@tiptap/extension-underline@3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))':
+    dependencies:
+      '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
+
+  '@tiptap/extension-youtube@3.11.0(@tiptap/core@3.11.0(@tiptap/pm@3.11.0))':
     dependencies:
       '@tiptap/core': 3.11.0(@tiptap/pm@3.11.0)
 

@@ -11,6 +11,9 @@
   import { TableHeader } from "@tiptap/extension-table-header";
   import { TableRow } from "@tiptap/extension-table-row";
   import BubbleMenu from "@tiptap/extension-bubble-menu";
+  import Image from "@tiptap/extension-image";
+  import Link from "@tiptap/extension-link";
+  import Youtube from "@tiptap/extension-youtube";
   import "./tiptap.css";
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
@@ -262,6 +265,14 @@
         TableRow,
         TableHeader,
         TableCell,
+        Image,
+        Link.configure({
+          openOnClick: false,
+          autolink: true,
+        }),
+        Youtube.configure({
+          controls: false,
+        }),
         BubbleMenu.configure({
           element: bubbleMenuElement,
           shouldShow: ({ editor }) => {
