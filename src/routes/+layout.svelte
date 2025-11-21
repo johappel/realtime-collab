@@ -25,7 +25,7 @@
 				<a href="/editor/demo" class:text-blue-600={$page.url.pathname.startsWith('/editor')} class="hover:text-blue-500">Editor</a>
 				<a href="/mindmap/demo" class:text-blue-600={$page.url.pathname.startsWith('/mindmap')} class="hover:text-blue-500">Mindmap</a>
 				<a href="/todo/demo" class:text-blue-600={$page.url.pathname.startsWith('/todo')} class="hover:text-blue-500">Todo</a>
-				<!-- Future apps: Whiteboard -->
+				<a href="/whiteboard/demo" class:text-blue-600={$page.url.pathname.startsWith('/whiteboard')} class="hover:text-blue-500">Whiteboard</a>
 			</nav>
 		</div>
 
