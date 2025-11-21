@@ -176,7 +176,8 @@ export class NostrYDocProvider {
       this.signAndPublish(nostrEvent).then(() => {
         if (this.debug) console.log(`[NostrYDocProvider] Published update kind 9337`);
       }).catch((error) => {
-        console.error('Failed to sign/publish Nostr Yjs event', error);
+        // console.error('Failed to sign/publish Nostr Yjs event', error);
+        if (this.debug) console.warn('[NostrYDocProvider] Failed to publish update:', error);
       });
     });
   }

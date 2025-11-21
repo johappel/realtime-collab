@@ -204,7 +204,9 @@ export class NostrAwarenessProvider {
             created_at: Math.floor(Date.now() / 1000),
         };
 
-        this.signAndPublish(event).catch(console.error);
+        this.signAndPublish(event).catch(e => {
+            if (this.debug) console.warn('[NostrAwareness] Failed to publish state:', e);
+        });
     }
 
     destroy() {

@@ -55,14 +55,14 @@ export async function signAndPublishNip07(
     } catch (error) {
         // Wenn alle fehlschlagen, loggen wir Details, aber werfen den Fehler weiter,
         // damit der Aufrufer Bescheid weiß.
-        console.error('All relays failed to publish event:', error);
+        // console.error('All relays failed to publish event:', error);
         if (error instanceof AggregateError) {
-            error.errors.forEach((e: any, i: number) => {
-                console.error(`Relay ${relays[i]} failed:`, e);
-                if (relays[i].includes('localhost')) {
-                    console.warn('Hint: Make sure you have a local Nostr relay running on port 7000 (e.g. nostr-rs-relay or nak).');
-                }
-            });
+            const isLocalhost = relays.some(r => r.includes('localhost'));
+            if (isLocalhost) {
+                console.warn('Failed to publish to local relay. Is it running? (docker-compose up -d)');
+            } else {
+                console.warn('Failed to publish to any relay.');
+            }
         }
         throw error;
     }
