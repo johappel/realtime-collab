@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
+    import { onMount, onDestroy, untrack } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { useTodoYDoc, type TodoItem } from './useTodoYDoc';
     import { loadConfig } from '$lib/config';
@@ -8,23 +8,26 @@
     import { dndzone, type DndEvent } from 'svelte-dnd-action';
     import { flip } from 'svelte/animate';
     import { Calendar, User, X } from 'lucide-svelte';
+    import * as Y from 'yjs';
 
     let { 
         documentId, 
         user = { name: 'Anon', color: '#ff0000' },
-        mode = 'local'
+        mode = 'local',
+        title = $bindable('')
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
+        title?: string;
     }>();
 
     let items: Writable<TodoItem[]> = $state(writable([]));
     let localItems = $state<TodoItem[]>([]);
     let isDragging = $state(false);
-    let newItemText = $state('');
     let cleanup: (() => void) | null = null;
     let actions: any = {};
+    let ydoc: Y.Doc | null = $state(null);
 
     onMount(async () => {
         let pubkey = '';
@@ -52,6 +55,7 @@
         );
 
         items = result.items;
+        ydoc = result.ydoc;
         cleanup = result.cleanup;
         actions = {
             addItem: result.addItem,
@@ -62,6 +66,47 @@
             assignUser: result.assignUser,
             setDueDate: result.setDueDate
         };
+
+        // Title Sync Logic
+        const metaMap = ydoc.getMap("metadata");
+
+        const handleMetaUpdate = (event: Y.YMapEvent<any>) => {
+            if (event.transaction.local) return;
+            const storedTitle = metaMap.get("todo-title") as string;
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            }
+        };
+
+        metaMap.observe(handleMetaUpdate);
+        
+        // Initial sync
+        const storedTitle = metaMap.get("todo-title") as string;
+        untrack(() => {
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            } else if (storedTitle === undefined && title && title !== documentId) {
+                metaMap.set("todo-title", title);
+            }
+        });
+
+        // Wrap cleanup to include unobserve
+        const originalCleanup = cleanup;
+        cleanup = () => {
+            metaMap.unobserve(handleMetaUpdate);
+            if (originalCleanup) originalCleanup();
+        };
+    });
+
+    // Write title changes to Yjs
+    $effect(() => {
+        if (!ydoc) return;
+        const metaMap = ydoc.getMap("metadata");
+        const storedTitle = metaMap.get("todo-title") as string;
+        
+        if (title && title !== storedTitle) {
+            metaMap.set("todo-title", title);
+        }
     });
 
     // Sync store to local state, but pause during drag
@@ -76,17 +121,9 @@
         if (cleanup) cleanup();
     });
 
-    function handleAdd() {
-        if (newItemText.trim()) {
-            actions.addItem(newItemText.trim());
-            newItemText = '';
-        }
-    }
-
-    function handleKeydown(e: KeyboardEvent) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleAdd();
+    export function addItem(text: string) {
+        if (text.trim()) {
+            actions.addItem(text.trim());
         }
     }
 
@@ -150,22 +187,6 @@
 </script>
 
 <div class="max-w-2xl mx-auto p-6">
-    <div class="flex gap-2 mb-6">
-        <input
-            type="text"
-            bind:value={newItemText}
-            onkeydown={handleKeydown}
-            placeholder="Add a new task..."
-            class="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 outline-none"
-        />
-        <button
-            onclick={handleAdd}
-            class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-        >
-            Add
-        </button>
-    </div>
-
     <div 
         class="space-y-2"
         use:dndzone={{items: localItems, flipDurationMs: 300, dropTargetStyle: {}}}

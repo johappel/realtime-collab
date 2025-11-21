@@ -159,6 +159,7 @@
         bind:maxWidth
         onDownload={handleDownload}
         toolbar={editorToolbar}
+        showEditorControls={true}
     />
   {/if}
   

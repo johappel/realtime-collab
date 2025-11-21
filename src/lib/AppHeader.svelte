@@ -12,7 +12,8 @@
         showHistory = $bindable(false),
         maxWidth = $bindable(1024),
         onDownload,
-        toolbar
+        toolbar,
+        showEditorControls = false
     } = $props<{
         documentId: string;
         awareness: Awareness | null;
@@ -20,6 +21,7 @@
         maxWidth: number;
         onDownload?: (format: string) => void;
         toolbar?: import('svelte').Snippet;
+        showEditorControls?: boolean;
     }>();
 
     let showSettings = $state(false);
@@ -49,23 +51,25 @@
         <PresenceList {awareness} mode={appState.mode} />
         
         <div class="controls">
-            <button 
-                class="icon-btn" 
-                class:active={showHistory}
-                onclick={() => showHistory = !showHistory} 
-                title="Versionen / Snapshots"
-            >
-                <History size={18} />
-            </button>
-            <button 
-                class="icon-btn" 
-                onclick={() => showSettings = true} 
-                title="Einstellungen"
-                bind:this={settingsButton}
-            >
-                <Settings size={18} />
-            </button>
-            <div class="divider"></div>
+            {#if showEditorControls}
+                <button 
+                    class="icon-btn" 
+                    class:active={showHistory}
+                    onclick={() => showHistory = !showHistory} 
+                    title="Versionen / Snapshots"
+                >
+                    <History size={18} />
+                </button>
+                <button 
+                    class="icon-btn" 
+                    onclick={() => showSettings = true} 
+                    title="Einstellungen"
+                    bind:this={settingsButton}
+                >
+                    <Settings size={18} />
+                </button>
+                <div class="divider"></div>
+            {/if}
             <label class:active={appState.mode === "local"}>
                 <input type="radio" name="mode" value="local" checked={appState.mode === 'local'} onchange={() => appState.setMode('local')} /> Local
             </label>
@@ -218,5 +222,54 @@
           width: 100%;
           justify-content: center;
       }
+  }
+
+  /* Dark Mode Overrides */
+  :global(.dark) .header {
+      background-color: #1f2937;
+      border-bottom-color: #374151;
+  }
+
+  :global(.dark) .doc-title-input {
+      color: #f3f4f6;
+  }
+
+  :global(.dark) .doc-title-input:hover {
+      background-color: #374151;
+  }
+
+  :global(.dark) .doc-title-input:focus {
+      background-color: #111827;
+      border-color: #60a5fa;
+  }
+
+  :global(.dark) .controls {
+      background-color: #374151;
+  }
+
+  :global(.dark) .controls label {
+      color: #d1d5db;
+  }
+
+  :global(.dark) .controls label:hover {
+      color: #f9fafb;
+  }
+
+  :global(.dark) .controls label.active {
+      background-color: #1f2937;
+      color: #38bdf8;
+  }
+
+  :global(.dark) .icon-btn {
+      color: #9ca3af;
+  }
+
+  :global(.dark) .icon-btn:hover, :global(.dark) .icon-btn.active {
+      background-color: #1f2937;
+      color: #f3f4f6;
+  }
+
+  :global(.dark) .divider {
+      background-color: #4b5563;
   }
 </style>

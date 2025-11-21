@@ -15,19 +15,18 @@
     let { 
         documentId, 
         user = { name: 'Anon', color: '#ff0000' },
-        mode = 'local'
+        mode = 'local',
+        toolbarState = $bindable({ hasSelection: false, layout: 'vertical' as 'vertical' | 'horizontal' }),
+        title = $bindable('')
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
         mode?: 'local' | 'nostr';
+        toolbarState?: { hasSelection: boolean; layout: 'vertical' | 'horizontal' };
+        title?: string;
     }>();
 
-    const nodeTypes = {
-        editable: EditableNode as any,
-        default: EditableNode as any
-    };
-
-    const colors = [
+    export const colors = [
         { color: '', label: 'Default' },
         { color: '#ffcdd2', label: 'Red' },
         { color: '#bbdefb', label: 'Blue' },
@@ -35,6 +34,11 @@
         { color: '#fff9c4', label: 'Yellow' },
         { color: '#e1bee7', label: 'Purple' },
     ];
+
+    const nodeTypes = {
+        editable: EditableNode as any,
+        default: EditableNode as any
+    };
 
     // Stores from Yjs (source of truth)
     let nodesStore: Writable<Node[]> = $state(writable([]));
@@ -48,6 +52,7 @@
 
     let yNodes: Y.Map<Node> | null = null;
     let yEdges: Y.Map<Edge> | null = null;
+    let ydoc: Y.Doc | null = $state(null);
     let cleanup: (() => void) | null = null;
 
     // Sync flags to prevent loops
@@ -84,7 +89,49 @@
         layoutStore = result.layout;
         yNodes = result.yNodes;
         yEdges = result.yEdges;
+        ydoc = result.ydoc;
         cleanup = result.cleanup;
+
+        // Title Sync Logic
+        const metaMap = ydoc.getMap("metadata");
+
+        const handleMetaUpdate = (event: Y.YMapEvent<any>) => {
+            if (event.transaction.local) return;
+            const storedTitle = metaMap.get("mindmap-title") as string;
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            }
+        };
+
+        metaMap.observe(handleMetaUpdate);
+        
+        // Initial sync
+        const storedTitle = metaMap.get("mindmap-title") as string;
+        untrack(() => {
+            if (storedTitle !== undefined && storedTitle !== title) {
+                title = storedTitle;
+            } else if (storedTitle === undefined && title && title !== documentId) {
+                metaMap.set("mindmap-title", title);
+            }
+        });
+
+        // Wrap cleanup to include unobserve
+        const originalCleanup = cleanup;
+        cleanup = () => {
+            metaMap.unobserve(handleMetaUpdate);
+            if (originalCleanup) originalCleanup();
+        };
+    });
+
+    // Write title changes to Yjs
+    $effect(() => {
+        if (!ydoc) return;
+        const metaMap = ydoc.getMap("metadata");
+        const storedTitle = metaMap.get("mindmap-title") as string;
+        
+        if (title && title !== storedTitle) {
+            metaMap.set("mindmap-title", title);
+        }
     });
 
     // Sync Store -> State (Layout)
@@ -318,6 +365,32 @@
     // Derived state for UI
     let selectedNodes = $derived(nodes.filter(n => n.selected));
     let hasSelection = $derived(selectedNodes.length > 0 || edges.some(e => e.selected));
+
+    $effect(() => {
+        toolbarState.hasSelection = hasSelection;
+        toolbarState.layout = layout;
+    });
+
+    export function addNodePublic(parentId?: string) {
+        if (parentId) {
+            addNode(parentId);
+        } else {
+            const selectedNode = nodes.find(n => n.selected);
+            addNode(selectedNode?.id);
+        }
+    }
+
+    export function toggleLayoutPublic() {
+        toggleLayout();
+    }
+
+    export function deleteSelectedPublic() {
+        deleteSelected();
+    }
+
+    export function setColorPublic(color: string) {
+        setColor(color);
+    }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -336,50 +409,6 @@
         <Controls />
     </SvelteFlow>
     {/if}
-    
-    <div class="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
-        <div class="flex gap-2">
-            {#if hasSelection}
-                <div class="flex bg-white dark:bg-gray-800 rounded shadow border border-gray-300 dark:border-gray-600 p-1 gap-1 mr-2 items-center">
-                    {#each colors as c}
-                        <button
-                            class="w-6 h-6 rounded-full border border-gray-200 dark:border-gray-600 hover:scale-110 transition-transform"
-                            style="background-color: {c.color || (theme.isDark ? '#1f2937' : '#ffffff')}"
-                            title={c.label}
-                            onclick={() => setColor(c.color)}
-                        >
-                            {#if !c.color}
-                                <span class="block text-[10px] text-center leading-5 text-gray-500">/</span>
-                            {/if}
-                        </button>
-                    {/each}
-                    <div class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                    <button 
-                        class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded"
-                        onclick={deleteSelected}
-                        title="Löschen"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
-            {/if}
-
-            <button 
-                class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-3 py-2 rounded shadow text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                onclick={toggleLayout}
-                title="Layout umschalten"
-            >
-                {layout === 'vertical' ? '↕ Vertical' : '↔ Horizontal'}
-            </button>
-
-            <button 
-                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
-                onclick={() => addNode()}
-            >
-                Add Node
-            </button>
-        </div>
-    </div>
 </div>
 
 <style>
