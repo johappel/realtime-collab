@@ -49,6 +49,7 @@ Eine Suite von **Local-First Kollaborations-Tools**, die:
 - **Text Editor:** `ydoc.getXmlFragment('prosemirror')`
 - **Mindmap:** `ydoc.getMap('mindmap-nodes')`, `ydoc.getMap('mindmap-edges')`
 - **Todo:** `ydoc.getMap('todo-data')`, `ydoc.getArray('todo-order')`
+- **Wiki:** `ydoc.getMap('wiki-pages')` (Metadaten), `ydoc.getXmlFragment('page-<id>')` (Inhalt pro Seite)
 
 **Transport / Backend:**
 
@@ -72,6 +73,9 @@ Wenn du eine neue App (z.B. Whiteboard) hinzufügst oder eine bestehende erweite
     - Die Komponente (`NeueApp.svelte`) sollte "dumm" sein und nur Daten anzeigen / Events feuern.
     - **AppHeader nutzen:** Jede App-Page (`+page.svelte`) MUSS den `AppHeader` verwenden, um konsistente Navigation, Titel-Bearbeitung und Presence-Anzeige zu gewährleisten.
     - **Titel-Sync:** Der Dokument-Titel muss bidirektional mit `ydoc.getMap('metadata').get('title')` (oder app-spezifischem Key) synchronisiert werden, damit Änderungen im Header auch im Yjs-State landen und umgekehrt.
+4.  **TipTap Erweiterungen:**
+    - Für Editor-basierte Apps (Wiki, Notes): Nutze Custom Extensions für spezielle Features (z.B. `WikiLink` für `[Page]`-Syntax).
+    - Nutze `InputRule` für Auto-Formatierung während des Tippens.
 
 ---
 
@@ -91,15 +95,20 @@ Wenn du (als AI-Agent) Code generierst oder anpasst, halte dich an diese Regeln:
    - `signAndPublish` wird immer von außen injiziert (NIP-07).
 5. **Keine Infrastruktur-Annahmen:**
    - Keine Hardcoded Relay-URLs.
+6. **Verbindungs-Management (CRITICAL):**
+   - **NIEMALS** `SimplePool` oder neue WebSocket-Verbindungen direkt erstellen.
+   - Immer `getRelayConnection` aus `nostrUtils.ts` verwenden.
+   - Relays blockieren Clients mit zu vielen parallelen Verbindungen.
 
 ---
 
 ## 6. Wichtige Module & Verantwortlichkeiten
 
 - `useNostrYDoc` – Generischer Hook für alle Apps (verbindet Yjs mit Nostr).
-- `useTodoYDoc` / `useMindmapYDoc` – App-spezifische Logik-Layer.
+- `useTodoYDoc` / `useMindmapYDoc` / `useWikiYDoc` – App-spezifische Logik-Layer.
 - `NostrYDocProvider` – Bidirektionales Binding Yjs ↔ Nostr.
 - `NostrAwarenessProvider` – Binding Yjs-Awareness ↔ Nostr.
+- `nostrUtils.ts` – Enthält `RelayConnection` Pool. **Wichtig:** Immer `getRelayConnection` nutzen, niemals `SimplePool` direkt instanziieren, um Verbindungsabbrüche zu vermeiden.
 
 ---
 

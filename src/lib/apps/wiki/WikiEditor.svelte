@@ -11,6 +11,7 @@
   import { TableHeader } from "@tiptap/extension-table-header";
   import { TableRow } from "@tiptap/extension-table-row";
   import BubbleMenu from "@tiptap/extension-bubble-menu";
+  import Link from "@tiptap/extension-link";
   import "$lib/tiptap.css";
   import * as Y from "yjs";
   import { Awareness } from "y-protocols/awareness";
@@ -116,6 +117,10 @@
           },
         }),
         WikiLink,
+        Link.configure({
+          autolink: true,
+          openOnClick: true,
+        }),
       ],
       editorProps: {
         attributes: {
@@ -256,5 +261,15 @@
       color: #1d4ed8;
       background-color: rgba(37, 99, 235, 0.1);
       border-radius: 2px;
+  }
+
+  :global(.editor .tiptap a) {
+    color: #2563eb;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  :global(.editor .tiptap a:hover) {
+    color: #1d4ed8;
   }
 </style>
