@@ -148,10 +148,12 @@
             type: 'editable',
             data: { label: 'New Node', content: '', initialFocus: true },
             position,
-            class: 'min-w-[200px]'
+            class: 'min-w-[200px]',
+            selected: true
         };
 
-        // Update local state
+        // Update local state: Deselect others and add new node
+        nodes = nodes.map(n => ({ ...n, selected: false }));
         nodes = [...nodes, newNode];
 
         // Create edge if parent exists

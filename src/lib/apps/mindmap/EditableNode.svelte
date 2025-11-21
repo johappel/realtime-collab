@@ -15,11 +15,12 @@
 
   onMount(() => {
       if (data.initialFocus && labelTextarea) {
-          labelTextarea.focus();
-          labelTextarea.select();
-          // Remove the flag to prevent re-focusing if persisted/reloaded
-          // Note: This mutation might trigger a sync, which is acceptable for this feature
-          delete data.initialFocus;
+          setTimeout(() => {
+              labelTextarea?.focus();
+              labelTextarea?.select();
+              // Remove the flag to prevent re-focusing if persisted/reloaded
+              delete data.initialFocus;
+          }, 10);
       }
   });
   
