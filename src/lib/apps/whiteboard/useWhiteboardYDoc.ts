@@ -21,9 +21,19 @@ export interface WhiteboardCard {
     height: number;
 }
 
+export interface WhiteboardFrame {
+    id: string;
+    x: number;
+    y: number;
+    label: string;
+    width: number;
+    height: number;
+}
+
 export interface UseWhiteboardYDocResult {
     paths: Writable<DrawPath[]>;
     cards: Writable<WhiteboardCard[]>;
+    frames: Writable<WhiteboardFrame[]>;
     ydoc: Y.Doc;
     provider: any;
     awareness: any;
@@ -34,6 +44,9 @@ export interface UseWhiteboardYDocResult {
     addCard: (x: number, y: number, color: string) => void;
     updateCard: (id: string, updates: Partial<WhiteboardCard>) => void;
     deleteCard: (id: string) => void;
+    addFrame: (x: number, y: number) => void;
+    updateFrame: (id: string, updates: Partial<WhiteboardFrame>) => void;
+    deleteFrame: (id: string) => void;
     clearBoard: () => void;
     undo: () => void;
 }
@@ -67,9 +80,11 @@ export function useWhiteboardYDoc(
     // Yjs Data Structure: Array of Maps
     const yPaths = ydoc.getArray<Y.Map<any>>('whiteboard-paths');
     const yCards = ydoc.getMap<Y.Map<any>>('whiteboard-cards'); // Using Map for cards for easier ID access
+    const yFrames = ydoc.getMap<Y.Map<any>>('whiteboard-frames');
     
     const paths = writable<DrawPath[]>([]);
     const cards = writable<WhiteboardCard[]>([]);
+    const frames = writable<WhiteboardFrame[]>([]);
 
     const syncPaths = () => {
         const newPaths = yPaths.map(yMap => ({
@@ -98,10 +113,27 @@ export function useWhiteboardYDoc(
         cards.set(newCards);
     };
 
+    const syncFrames = () => {
+        const newFrames: WhiteboardFrame[] = [];
+        yFrames.forEach((yMap) => {
+            newFrames.push({
+                id: yMap.get('id'),
+                x: yMap.get('x'),
+                y: yMap.get('y'),
+                label: yMap.get('label'),
+                width: yMap.get('width'),
+                height: yMap.get('height')
+            });
+        });
+        frames.set(newFrames);
+    };
+
     yPaths.observeDeep(syncPaths);
     yCards.observeDeep(syncCards);
+    yFrames.observeDeep(syncFrames);
     syncPaths();
     syncCards();
+    syncFrames();
 
     const startPath = (x: number, y: number, color: string, width: number): string => {
         const id = crypto.randomUUID();
@@ -192,10 +224,44 @@ export function useWhiteboardYDoc(
         });
     };
 
+    const addFrame = (x: number, y: number) => {
+        ydoc.transact(() => {
+            const id = crypto.randomUUID();
+            const yMap = new Y.Map();
+            yMap.set('id', id);
+            yMap.set('x', x);
+            yMap.set('y', y);
+            yMap.set('label', 'New Frame');
+            yMap.set('width', 400);
+            yMap.set('height', 300);
+            yFrames.set(id, yMap);
+        });
+    };
+
+    const updateFrame = (id: string, updates: Partial<WhiteboardFrame>) => {
+        ydoc.transact(() => {
+            const yMap = yFrames.get(id);
+            if (yMap) {
+                if (updates.x !== undefined) yMap.set('x', updates.x);
+                if (updates.y !== undefined) yMap.set('y', updates.y);
+                if (updates.label !== undefined) yMap.set('label', updates.label);
+                if (updates.width !== undefined) yMap.set('width', updates.width);
+                if (updates.height !== undefined) yMap.set('height', updates.height);
+            }
+        });
+    };
+
+    const deleteFrame = (id: string) => {
+        ydoc.transact(() => {
+            yFrames.delete(id);
+        });
+    };
+
     const clearBoard = () => {
         ydoc.transact(() => {
             yPaths.delete(0, yPaths.length);
             yCards.clear();
+            yFrames.clear();
         });
     };
 
@@ -210,6 +276,7 @@ export function useWhiteboardYDoc(
     const cleanup = () => {
         yPaths.unobserveDeep(syncPaths);
         yCards.unobserveDeep(syncCards);
+        yFrames.unobserveDeep(syncFrames);
         if (provider && typeof provider.destroy === 'function') provider.destroy();
         if (awareness) awareness.destroy();
         if (persistence && typeof persistence.destroy === 'function') persistence.destroy();
@@ -219,6 +286,7 @@ export function useWhiteboardYDoc(
     return {
         paths,
         cards,
+        frames,
         ydoc,
         provider,
         awareness,
@@ -229,6 +297,9 @@ export function useWhiteboardYDoc(
         addCard,
         updateCard,
         deleteCard,
+        addFrame,
+        updateFrame,
+        deleteFrame,
         clearBoard,
         undo
     };
