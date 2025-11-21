@@ -9,7 +9,7 @@
   color: #111827;
 }
 
-:global(.dark) .ProseMirror {
+.dark .ProseMirror {
   caret-color: #f9fafb;
   color: #f9fafb;
 }
@@ -36,7 +36,7 @@
   color: #111827;
 }
 
-:global(.dark) .ProseMirror h1 {
+.dark .ProseMirror h1 {
   color: #f9fafb;
 }
 
@@ -48,7 +48,7 @@
   color: #1f2937;
 }
 
-:global(.dark) .ProseMirror h2 {
+.dark .ProseMirror h2 {
   color: #e5e7eb;
 }
 
@@ -60,7 +60,7 @@
   color: #374151;
 }
 
-:global(.dark) .ProseMirror h3 {
+.dark .ProseMirror h3 {
   color: #d1d5db;
 }
 
@@ -93,7 +93,7 @@
   border-radius: 0.25rem;
 }
 
-:global(.dark) .ProseMirror blockquote {
+.dark .ProseMirror blockquote {
   border-left-color: #4b5563;
   color: #9ca3af;
   background-color: #1f2937;
@@ -110,7 +110,7 @@
   color: #111827;
 }
 
-:global(.dark) .ProseMirror code {
+.dark .ProseMirror code {
   background-color: #374151;
   color: #e5e7eb;
 }
@@ -125,7 +125,7 @@
   overflow-x: auto;
 }
 
-:global(.dark) .ProseMirror pre {
+.dark .ProseMirror pre {
   background-color: #000000;
   border: 1px solid #374151;
 }
@@ -158,8 +158,8 @@
   position: relative;
 }
 
-:global(.dark) .ProseMirror td,
-:global(.dark) .ProseMirror th {
+.dark .ProseMirror td,
+.dark .ProseMirror th {
   border-color: #4b5563;
 }
 
@@ -169,7 +169,7 @@
   background-color: #f1f3f5;
 }
 
-:global(.dark) .ProseMirror th {
+.dark .ProseMirror th {
   background-color: #374151;
 }
 
@@ -185,7 +185,7 @@
   pointer-events: none;
 }
 
-:global(.dark) .ProseMirror .selectedCell:after {
+.dark .ProseMirror .selectedCell:after {
   background: rgba(59, 130, 246, 0.3);
 }
 
