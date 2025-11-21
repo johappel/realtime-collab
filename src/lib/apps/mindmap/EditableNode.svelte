@@ -1,14 +1,27 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from '@xyflow/svelte';
+  import { onMount } from 'svelte';
 
   interface MyNodeProps extends NodeProps {
       data: {
           label: string;
           content?: string;
+          initialFocus?: boolean;
       }
   }
 
   let { data } = $props() as MyNodeProps;
+  let labelTextarea: HTMLTextAreaElement | undefined = $state();
+
+  onMount(() => {
+      if (data.initialFocus && labelTextarea) {
+          labelTextarea.focus();
+          labelTextarea.select();
+          // Remove the flag to prevent re-focusing if persisted/reloaded
+          // Note: This mutation might trigger a sync, which is acceptable for this feature
+          delete data.initialFocus;
+      }
+  });
   
   function handleLabelInput(e: Event) {
       const target = e.target as HTMLTextAreaElement;
@@ -37,6 +50,7 @@
   
   <div class="flex flex-col gap-1">
       <textarea 
+          bind:this={labelTextarea}
           value={data.label} 
           oninput={handleLabelInput}
           use:resizeAction

@@ -125,20 +125,73 @@
         if (cleanup) cleanup();
     });
     
-    function addNode() {
+    function addNode(parentId?: string) {
         if (!yNodes) return;
         const id = crypto.randomUUID();
+        
+        let position = { x: Math.random() * 400, y: Math.random() * 400 };
+        
+        // If parent exists, place new node relative to it
+        if (parentId) {
+            const parent = nodes.find(n => n.id === parentId);
+            if (parent) {
+                // Place it to the right and slightly randomized vertically
+                position = { 
+                    x: parent.position.x + 300, 
+                    y: parent.position.y + (Math.random() - 0.5) * 100 
+                };
+            }
+        }
+
         const newNode: Node = {
             id,
-            type: 'editable', // Changed to 'editable'
-            data: { label: 'New Node', content: '' },
-            position: { x: Math.random() * 400, y: Math.random() * 400 },
+            type: 'editable',
+            data: { label: 'New Node', content: '', initialFocus: true },
+            position,
             class: 'min-w-[200px]'
         };
-        // Update local state, effect will sync to store
+
+        // Update local state
         nodes = [...nodes, newNode];
+
+        // Create edge if parent exists
+        if (parentId) {
+            const newEdge: Edge = {
+                id: crypto.randomUUID(),
+                source: parentId,
+                target: id,
+                type: 'default'
+            };
+            edges = [...edges, newEdge];
+        }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+        const isInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+
+        if (event.key === 'Insert') {
+            // Always allow Insert, even in inputs
+            event.preventDefault();
+            const selectedNode = nodes.find(n => n.selected);
+            addNode(selectedNode?.id);
+            return;
+        }
+
+        if (event.key === 'Delete' || event.key === 'Backspace') {
+            if (isInput) return; // Allow deleting text in inputs
+            
+            // Manually handle deletion of selected nodes/edges
+            const hasSelection = nodes.some(n => n.selected) || edges.some(e => e.selected);
+            if (hasSelection) {
+                event.preventDefault();
+                nodes = nodes.filter(n => !n.selected);
+                edges = edges.filter(e => !e.selected);
+            }
+        }
     }
 </script>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <div style="height: 100%; width: 100%; position: relative;">
     {#if browser}
@@ -158,7 +211,7 @@
     <div class="absolute top-4 right-4 z-10">
         <button 
             class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
-            onclick={addNode}
+            onclick={() => addNode()}
         >
             Add Node
         </button>
