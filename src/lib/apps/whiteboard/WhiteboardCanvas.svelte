@@ -7,6 +7,7 @@
         type WhiteboardCard,
         type WhiteboardFrame,
         type WhiteboardImage,
+        type WhiteboardFigure,
     } from "./useWhiteboardYDoc";
     import { loadConfig } from "$lib/config";
     import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
@@ -39,7 +40,7 @@
         documentId: string;
         user?: { name: string; color: string };
         mode?: "local" | "nostr" | "group";
-        activeTool?: "hand" | "pen" | "card" | "frame" | "select";
+        activeTool?: "hand" | "pen" | "card" | "frame" | "select" | "figure";
         currentColor?: string;
         currentWidth?: number;
         cardColor?: string;
@@ -51,6 +52,7 @@
     let cards: Writable<WhiteboardCard[]> = $state(writable([]));
     let frames: Writable<WhiteboardFrame[]> = $state(writable([]));
     let images: Writable<WhiteboardImage[]> = $state(writable([]));
+    let figures: Writable<WhiteboardFigure[]> = $state(writable([]));
     let cleanup: (() => void) | null = null;
     let actions: any = {};
     let ydoc: Y.Doc | null = $state(null);
@@ -74,6 +76,7 @@
     let resizingFrameId: string | null = null;
     let draggingImageId: string | null = null;
     let resizingImageId: string | null = null;
+    let draggingFigureId: string | null = null;
     let attachedCardIds: Set<string> = new Set();
     let attachedImageIds: Set<string> = new Set();
     let dragOffset = { x: 0, y: 0 };
@@ -170,7 +173,8 @@
             ...i,
             type: "image" as const,
         }));
-        return [...allCards, ...allImages].sort(
+        const allFigures = $figures.map((f) => ({ ...f, type: "figure" as const }));
+        return [...allCards, ...allImages, ...allFigures].sort(
             (a, b) => (a.zIndex || 0) - (b.zIndex || 0),
         );
     });
@@ -181,18 +185,27 @@
         return element.type === "card";
     }
 
-    function bringToFront(element: WhiteboardCard | WhiteboardImage) {
+    function isFigure(
+        element: any,
+    ): element is WhiteboardFigure & { type: "figure" } {
+        return element.type === "figure";
+    }
+
+    function bringToFront(element: WhiteboardCard | WhiteboardImage | WhiteboardFigure) {
         const maxZ = Math.max(
             ...$cards.map((c) => c.zIndex || 0),
             ...$images.map((i) => i.zIndex || 0),
+            ...$figures.map((f) => f.zIndex || 0),
             0,
         );
         const newZ = maxZ + 1;
 
         if ("text" in element) {
             actions.updateCard(element.id, { zIndex: newZ });
-        } else {
+        } else if ("url" in element) {
             actions.updateImage(element.id, { zIndex: newZ });
+        } else if ("name" in element) {
+            actions.updateFigure(element.id, { zIndex: newZ });
         }
     }
 
@@ -217,8 +230,11 @@
         const frameIds = Array.from(selectedElementIds).filter(id => 
             $frames.some(f => f.id === id)
         );
+        const figureIds = Array.from(selectedElementIds).filter(id => 
+            $figures.some(f => f.id === id)
+        );
         
-        actions.deleteMultiple(cardIds, imageIds, frameIds);
+        actions.deleteMultiple(cardIds, imageIds, frameIds, figureIds);
         selectedElementIds.clear();
         updateSelectionVersion();
     }
@@ -390,6 +406,15 @@
             minY = Math.min(minY, image.y);
             maxX = Math.max(maxX, image.x + image.width);
             maxY = Math.max(maxY, image.y + image.height);
+            hasElements = true;
+        });
+
+        // Figures
+        $figures.forEach(figure => {
+            minX = Math.min(minX, figure.x);
+            minY = Math.min(minY, figure.y);
+            maxX = Math.max(maxX, figure.x + 50);
+            maxY = Math.max(maxY, figure.y + 100);
             hasElements = true;
         });
         
@@ -611,6 +636,7 @@
         cards = result.cards;
         frames = result.frames;
         images = result.images;
+        figures = result.figures;
         cleanup = result.cleanup;
         ydoc = result.ydoc;
         awareness = result.awareness;
@@ -627,6 +653,9 @@
             addImage: result.addImage,
             updateImage: result.updateImage,
             deleteImage: result.deleteImage,
+            addFigure: result.addFigure,
+            updateFigure: result.updateFigure,
+            deleteFigure: result.deleteFigure,
             deleteMultiple: result.deleteMultiple,
             clearBoard: result.clearBoard,
             undo: result.undo,
@@ -818,6 +847,9 @@
         } else if (activeTool === "frame") {
             actions.addFrame(x, y);
             activeTool = "hand";
+        } else if (activeTool === "figure") {
+            actions.addFigure(x, y, user.name, user.color);
+            activeTool = "hand";
         }
     }
 
@@ -891,6 +923,8 @@
                             }
                         });
                     }
+                } else if ($figures.some(f => f.id === id)) {
+                    actions.updateFigure(id, { x: newX, y: newY });
                 }
             });
             return;
@@ -963,6 +997,11 @@
                 width: Math.max(50, resizeStart.width + dx),
                 height: Math.max(50, resizeStart.height + dy),
             });
+        } else if (draggingFigureId) {
+            actions.updateFigure(draggingFigureId, {
+                x: x - dragOffset.x,
+                y: y - dragOffset.y,
+            });
         }
     }
 
@@ -990,6 +1029,7 @@
         resizingFrameId = null;
         draggingImageId = null;
         resizingImageId = null;
+        draggingFigureId = null;
         attachedCardIds.clear();
         attachedImageIds.clear();
     }
@@ -1317,6 +1357,58 @@
 
         input.click();
     }
+
+    function handleFigureDragStart(
+        e: MouseEvent | TouchEvent,
+        figure: WhiteboardFigure,
+    ) {
+        if (activeTool !== "select" && activeTool !== "hand") return;
+        e.stopPropagation();
+        
+        // Auto-switch to select when dragging an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
+        
+        const { x, y } = getPoint(e);
+        
+        // Multi-Selection Logic
+        if (e.shiftKey || e.ctrlKey) {
+            if (selectedElementIds.has(figure.id)) {
+                selectedElementIds.delete(figure.id);
+            } else {
+                selectedElementIds.add(figure.id);
+            }
+            updateSelectionVersion();
+            if (!selectedElementIds.has(figure.id)) return;
+        } else {
+            if (!selectedElementIds.has(figure.id)) {
+                selectedElementIds.clear();
+                selectedElementIds.add(figure.id);
+                updateSelectionVersion();
+            }
+        }
+        
+        // Prepare for dragging all selected items
+        isDraggingSelection = true;
+        dragStartOffsets.clear();
+        
+        selectedElementIds.forEach(id => {
+            const item = $cards.find(c => c.id === id) || 
+                         $images.find(i => i.id === id) || 
+                         $frames.find(f => f.id === id) ||
+                         $figures.find(f => f.id === id);
+            if (item) {
+                dragStartOffsets.set(id, {
+                    x: x - item.x,
+                    y: y - item.y
+                });
+            }
+        });
+        
+        draggingFigureId = figure.id;
+        bringToFront(figure);
+    }
 </script>
 
 <div class="flex flex-col h-full w-full bg-white dark:bg-gray-900">
@@ -1606,6 +1698,73 @@
                             ></div>
                         </div>
                     </foreignObject>
+                {:else if isFigure(element)}
+                    <!-- Figure Element -->
+                    <g
+                        transform="translate({element.x}, {element.y})"
+                        class="group cursor-move"
+                        onmousedown={(e) => handleFigureDragStart(e, element)}
+                        ontouchstart={(e) => handleFigureDragStart(e, element)}
+                    >
+                        <!-- Selection Ring -->
+                        {#if selectedElementIds.has(element.id)}
+                            <rect
+                                x="-5"
+                                y="-5"
+                                width="60"
+                                height="110"
+                                fill="none"
+                                stroke="rgb(59, 130, 246)"
+                                stroke-width="2"
+                                rx="5"
+                            />
+                        {/if}
+
+                        <!-- Body -->
+                        <path
+                            d="M 5 90 L 5 45 Q 25 30 45 45 L 45 90 Z"
+                            fill={element.color}
+                            stroke="black"
+                            stroke-width="2"
+                        />
+                        
+                        <!-- Head -->
+                        <circle
+                            cx="25"
+                            cy="20"
+                            r="15"
+                            fill={element.color}
+                            stroke="black"
+                            stroke-width="2"
+                        />
+
+                        <!-- Name Label (Editable) -->
+                        <foreignObject x="-25" y="95" width="100" height="30">
+                            <input
+                                type="text"
+                                class="w-full bg-transparent text-center text-sm font-bold outline-none text-gray-900 dark:text-gray-100"
+                                value={element.name}
+                                oninput={(e) => actions.updateFigure(element.id, { name: e.currentTarget.value })}
+                                onmousedown={(e) => e.stopPropagation()}
+                                aria-label="Figure name"
+                            />
+                        </foreignObject>
+
+                        <!-- Delete Button -->
+                        <foreignObject x="35" y="-10" width="20" height="20" class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                class="w-full h-full bg-white rounded-full shadow-md text-red-500 flex items-center justify-center hover:bg-red-50"
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    actions.deleteFigure(element.id);
+                                }}
+                                onmousedown={(e) => e.stopPropagation()}
+                                aria-label="Delete figure"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </foreignObject>
+                    </g>
                 {/if}
             {/each}
         </svg>

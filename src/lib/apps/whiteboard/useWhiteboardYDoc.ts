@@ -43,11 +43,21 @@ export interface WhiteboardImage {
     zIndex: number;
 }
 
+export interface WhiteboardFigure {
+    id: string;
+    x: number;
+    y: number;
+    name: string;
+    color: string;
+    zIndex: number;
+}
+
 export interface UseWhiteboardYDocResult {
     paths: Writable<DrawPath[]>;
     cards: Writable<WhiteboardCard[]>;
     frames: Writable<WhiteboardFrame[]>;
     images: Writable<WhiteboardImage[]>;
+    figures: Writable<WhiteboardFigure[]>;
     ydoc: Y.Doc;
     provider: any;
     awareness: any;
@@ -64,7 +74,10 @@ export interface UseWhiteboardYDocResult {
     addImage: (x: number, y: number, url: string, iv: string, mimetype: string, width: number, height: number) => string;
     updateImage: (id: string, updates: Partial<WhiteboardImage>) => void;
     deleteImage: (id: string) => void;
-    deleteMultiple: (cardIds: string[], imageIds: string[], frameIds: string[]) => void;
+    addFigure: (x: number, y: number, name: string, color: string) => string;
+    updateFigure: (id: string, updates: Partial<WhiteboardFigure>) => void;
+    deleteFigure: (id: string) => void;
+    deleteMultiple: (cardIds: string[], imageIds: string[], frameIds: string[], figureIds?: string[]) => void;
     clearBoard: () => void;
     undo: () => void;
 }
@@ -107,11 +120,13 @@ export function useWhiteboardYDoc(
     const cards = writable<WhiteboardCard[]>([]);
     const frames = writable<WhiteboardFrame[]>([]);
     const images = writable<WhiteboardImage[]>([]);
+    const figures = writable<WhiteboardFigure[]>([]);
 
     const yPaths = ydoc.getArray<Y.Map<any>>('whiteboard-paths');
     const yCards = ydoc.getMap<Y.Map<any>>('whiteboard-cards');
     const yFrames = ydoc.getMap<Y.Map<any>>('whiteboard-frames');
     const yImages = ydoc.getMap<Y.Map<any>>('whiteboard-images');
+    const yFigures = ydoc.getMap<Y.Map<any>>('whiteboard-figures');
 
     const syncPaths = () => {
         paths.set(yPaths.toArray().map(ymap => ymap.toJSON() as DrawPath));
@@ -129,16 +144,22 @@ export function useWhiteboardYDoc(
         images.set(Array.from(yImages.values()).map(ymap => ymap.toJSON() as WhiteboardImage));
     };
 
+    const syncFigures = () => {
+        figures.set(Array.from(yFigures.values()).map(ymap => ymap.toJSON() as WhiteboardFigure));
+    };
+
     yPaths.observeDeep(syncPaths);
     yCards.observeDeep(syncCards);
     yFrames.observeDeep(syncFrames);
     yImages.observeDeep(syncImages);
+    yFigures.observeDeep(syncFigures);
 
     // Initial sync
     syncPaths();
     syncCards();
     syncFrames();
     syncImages();
+    syncFigures();
 
     const startPath = (x: number, y: number, color: string, width: number) => {
         const id = crypto.randomUUID();
@@ -288,11 +309,46 @@ export function useWhiteboardYDoc(
         });
     };
 
-    const deleteMultiple = (cardIds: string[], imageIds: string[], frameIds: string[]) => {
+    const addFigure = (x: number, y: number, name: string, color: string) => {
+        const id = crypto.randomUUID();
+        ydoc.transact(() => {
+            const yMap = new Y.Map();
+            yMap.set('id', id);
+            yMap.set('x', x);
+            yMap.set('y', y);
+            yMap.set('name', name);
+            yMap.set('color', color);
+            yMap.set('zIndex', Date.now());
+            yFigures.set(id, yMap);
+        });
+        return id;
+    };
+
+    const updateFigure = (id: string, updates: Partial<WhiteboardFigure>) => {
+        ydoc.transact(() => {
+            const yMap = yFigures.get(id);
+            if (yMap) {
+                if (updates.x !== undefined) yMap.set('x', updates.x);
+                if (updates.y !== undefined) yMap.set('y', updates.y);
+                if (updates.name !== undefined) yMap.set('name', updates.name);
+                if (updates.color !== undefined) yMap.set('color', updates.color);
+                if (updates.zIndex !== undefined) yMap.set('zIndex', updates.zIndex);
+            }
+        });
+    };
+
+    const deleteFigure = (id: string) => {
+        ydoc.transact(() => {
+            yFigures.delete(id);
+        });
+    };
+
+    const deleteMultiple = (cardIds: string[], imageIds: string[], frameIds: string[], figureIds: string[] = []) => {
         ydoc.transact(() => {
             cardIds.forEach(id => yCards.delete(id));
             imageIds.forEach(id => yImages.delete(id));
             frameIds.forEach(id => yFrames.delete(id));
+            figureIds.forEach(id => yFigures.delete(id));
         });
     };
 
@@ -302,6 +358,7 @@ export function useWhiteboardYDoc(
             yCards.clear();
             yFrames.clear();
             yImages.clear();
+            yFigures.clear();
         });
     };
 
@@ -318,6 +375,7 @@ export function useWhiteboardYDoc(
         yCards.unobserveDeep(syncCards);
         yFrames.unobserveDeep(syncFrames);
         yImages.unobserveDeep(syncImages);
+        yFigures.unobserveDeep(syncFigures);
         if (provider && typeof provider.destroy === 'function') provider.destroy();
         if (awareness) awareness.destroy();
         if (persistence && typeof persistence.destroy === 'function') persistence.destroy();
@@ -329,6 +387,7 @@ export function useWhiteboardYDoc(
         cards,
         frames,
         images,
+        figures,
         ydoc,
         provider,
         awareness,
@@ -345,6 +404,9 @@ export function useWhiteboardYDoc(
         addImage,
         updateImage,
         deleteImage,
+        addFigure,
+        updateFigure,
+        deleteFigure,
         deleteMultiple,
         clearBoard,
         undo

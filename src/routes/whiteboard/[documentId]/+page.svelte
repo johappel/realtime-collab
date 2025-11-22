@@ -15,7 +15,7 @@
     let awareness: Awareness | null = $state(null);
 
     // Tool State
-    let activeTool = $state<"hand" | "pen" | "card" | "frame" | "select">("hand");
+    let activeTool = $state<"hand" | "pen" | "card" | "frame" | "select" | "figure">("hand");
     let currentColor = $state("#000000");
     let currentWidth = $state(3);
     let cardColor = $state("#fff9c4");
@@ -107,6 +107,17 @@
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" stroke-dasharray="4 4"/></svg>
                 <span class="hidden sm:inline">Rahmen</span>
+            </button>
+            <button
+                class="px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 {activeTool ===
+                'figure'
+                    ? 'bg-white dark:bg-gray-600 shadow text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}"
+                onclick={() => (activeTool = "figure")}
+                title="Figur"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21h13a2 2 0 0 0 2-2v-2.5a4.5 4.5 0 0 0-4.5-4.5h-8a4.5 4.5 0 0 0-4.5 4.5V19a2 2 0 0 0 2 2Z"/></svg>
+                <span class="hidden sm:inline">Figur</span>
             </button>
             <button
                 class="px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
