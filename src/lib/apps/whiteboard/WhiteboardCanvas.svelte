@@ -68,6 +68,7 @@
     let draggingImageId: string | null = null;
     let resizingImageId: string | null = null;
     let attachedCardIds: Set<string> = new Set();
+    let attachedImageIds: Set<string> = new Set();
     let dragOffset = { x: 0, y: 0 };
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
 
@@ -344,6 +345,16 @@
                         });
                     }
                 });
+
+                attachedImageIds.forEach((imageId) => {
+                    const image = $images.find((i) => i.id === imageId);
+                    if (image) {
+                        actions.updateImage(imageId, {
+                            x: image.x + dx,
+                            y: image.y + dy,
+                        });
+                    }
+                });
             }
         } else if (resizingFrameId) {
             const dx = x - resizeStart.x;
@@ -380,6 +391,7 @@
         draggingImageId = null;
         resizingImageId = null;
         attachedCardIds.clear();
+        attachedImageIds.clear();
     }
 
     function handleCardDragStart(
@@ -429,6 +441,20 @@
                 attachedCardIds.add(card.id);
             }
         });
+
+        attachedImageIds.clear();
+        $images.forEach((image) => {
+            const cx = image.x + image.width / 2;
+            const cy = image.y + image.height / 2;
+            if (
+                cx >= frame.x &&
+                cx <= frame.x + frame.width &&
+                cy >= frame.y &&
+                cy <= frame.y + frame.height
+            ) {
+                attachedImageIds.add(image.id);
+            }
+        });
     }
 
     function handleFrameResizeStart(
@@ -451,6 +477,7 @@
         const { x, y } = getPoint(e);
         draggingImageId = image.id;
         dragOffset = { x: x - image.x, y: y - image.y };
+        bringToFront(image);
     }
 
     function handleImageResizeStart(
@@ -462,6 +489,7 @@
         const { x, y } = getPoint(e);
         resizingImageId = image.id;
         resizeStart = { x, y, width: image.width, height: image.height };
+        bringToFront(image);
     }
 
     function autoResizeTextarea(e: Event) {
@@ -576,7 +604,7 @@
                     class="overflow-visible pointer-events-none"
                 >
                     <div
-                        class="w-full h-full border-2 border-dashed border-gray-400 rounded-lg flex flex-col relative pointer-events-auto bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
+                        class="w-full h-full border-2 border-dashed border-gray-400 rounded-lg flex flex-col relative pointer-events-auto bg-gray-500/10 hover:bg-gray-500/50 transition-colors"
                     >
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
