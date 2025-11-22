@@ -331,24 +331,29 @@
     <!-- Add Option -->
     {#if $settings.allowUserOptions || $options.length < 2}
         <div class="mt-6">
-            <div class="flex gap-2">
-                <input
-                    type="text"
+            <div class="flex gap-2 items-start">
+                <textarea
                     bind:value={newOptionText}
-                    onkeydown={(e) => e.key === "Enter" && handleAddOption()}
-                    placeholder="Neue Option hinzufügen..."
-                    class="grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+                    onkeydown={(e) => {
+                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            handleAddOption();
+                        }
+                    }}
+                    placeholder="Neue Option hinzufügen... (Strg+Enter zum Hinzufügen)"
+                    rows="3"
+                    class="grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none resize-y min-h-20"
+                ></textarea>
                 <button
                     onclick={handleAddOption}
                     disabled={!newOptionText.trim()}
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                     Hinzufügen
                 </button>
             </div>
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Tipp: URLs werden automatisch verlinkt. Markdown: **fett**, *kursiv*, `code`, ~~durchgestrichen~~, Listen: - oder 1.
+                Tipp: URLs werden automatisch verlinkt. Markdown: **fett**, *kursiv*, `code`, ~~durchgestrichen~~, Listen: - oder 1. • Strg+Enter zum Hinzufügen
             </div>
         </div>
     {/if}
