@@ -62,6 +62,7 @@
     let isDrawing = false;
     let currentPathId: string | null = null;
     let draggingCardId: string | null = null;
+    let resizingCardId: string | null = null;
     let draggingFrameId: string | null = null;
     let resizingFrameId: string | null = null;
     let draggingImageId: string | null = null;
@@ -71,6 +72,39 @@
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
 
     const MAX_CARD_HEIGHT = 300;
+
+    // Derived State for Z-Index Sorting
+    let sortedElements = $derived.by(() => {
+        const allCards = $cards.map((c) => ({ ...c, type: "card" as const }));
+        const allImages = $images.map((i) => ({
+            ...i,
+            type: "image" as const,
+        }));
+        return [...allCards, ...allImages].sort(
+            (a, b) => (a.zIndex || 0) - (b.zIndex || 0),
+        );
+    });
+
+    function isCard(
+        element: any,
+    ): element is WhiteboardCard & { type: "card" } {
+        return element.type === "card";
+    }
+
+    function bringToFront(element: WhiteboardCard | WhiteboardImage) {
+        const maxZ = Math.max(
+            ...$cards.map((c) => c.zIndex || 0),
+            ...$images.map((i) => i.zIndex || 0),
+            0,
+        );
+        const newZ = maxZ + 1;
+
+        if ("text" in element) {
+            actions.updateCard(element.id, { zIndex: newZ });
+        } else {
+            actions.updateImage(element.id, { zIndex: newZ });
+        }
+    }
 
     // Canvas Ref
     let svgElement: SVGSVGElement;
@@ -280,7 +314,15 @@
                 x: x - dragOffset.x,
                 y: y - dragOffset.y,
             });
+        } else if (resizingCardId) {
+            const dx = x - resizeStart.x;
+            const dy = y - resizeStart.y;
+            actions.updateCard(resizingCardId, {
+                width: Math.max(150, resizeStart.width + dx),
+                height: Math.max(100, resizeStart.height + dy),
+            });
         } else if (draggingFrameId) {
+            // ... (existing frame drag logic)
             const frame = $frames.find((f) => f.id === draggingFrameId);
             if (frame) {
                 const newX = x - dragOffset.x;
@@ -332,6 +374,7 @@
         isDrawing = false;
         currentPathId = null;
         draggingCardId = null;
+        resizingCardId = null;
         draggingFrameId = null;
         resizingFrameId = null;
         draggingImageId = null;
@@ -348,6 +391,19 @@
         const { x, y } = getPoint(e);
         draggingCardId = card.id;
         dragOffset = { x: x - card.x, y: y - card.y };
+        bringToFront(card);
+    }
+
+    function handleCardResizeStart(
+        e: MouseEvent | TouchEvent,
+        card: WhiteboardCard,
+    ) {
+        if (activeTool !== "select") return;
+        e.stopPropagation();
+        const { x, y } = getPoint(e);
+        resizingCardId = card.id;
+        resizeStart = { x, y, width: card.width, height: card.height };
+        bringToFront(card);
     }
 
     function handleFrameDragStart(
@@ -510,6 +566,7 @@
         ontouchend={handleEnd}
     >
         <svg bind:this={svgElement} class="w-full h-full block">
+            <!-- Layer 0: Frames (Background) -->
             {#each $frames as frame (frame.id)}
                 <foreignObject
                     x={frame.x}
@@ -562,6 +619,7 @@
                 </foreignObject>
             {/each}
 
+            <!-- Layer 1: Paths (Drawings) -->
             {#each $paths as path (path.id)}
                 <path
                     d={pointsToPath(path.points)}
@@ -573,140 +631,155 @@
                 />
             {/each}
 
-            {#each $cards as card (card.id)}
-                <foreignObject
-                    x={card.x}
-                    y={card.y}
-                    width={card.width}
-                    height={card.height}
-                    class="overflow-visible pointer-events-none"
-                >
-                    <div
-                        class="w-full h-full shadow-md rounded flex flex-col relative group pointer-events-auto transition-shadow hover:shadow-lg"
-                        style="background-color: {card.color};"
+            <!-- Layer 2: Cards and Images (Sorted by Z-Index) -->
+            {#each sortedElements as element (element.id)}
+                {#if isCard(element)}
+                    <foreignObject
+                        x={element.x}
+                        y={element.y}
+                        width={element.width}
+                        height={element.height}
+                        class="overflow-visible pointer-events-none"
                     >
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
-                            class="h-6 w-full cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-t flex items-center justify-end px-1"
-                            onmousedown={(e) => handleCardDragStart(e, card)}
-                            ontouchstart={(e) => handleCardDragStart(e, card)}
+                            class="w-full h-full shadow-md rounded flex flex-col relative group pointer-events-auto transition-shadow hover:shadow-lg"
+                            style="background-color: {element.color};"
                         >
-                            <div class="flex gap-1 mr-auto">
-                                {#each CARD_COLORS.slice(0, 4) as color}
-                                    <button
-                                        class="w-3 h-3 rounded-full border border-black/10"
-                                        style="background-color: {color.value}"
-                                        onclick={(e) => {
-                                            e.stopPropagation();
-                                            actions.updateCard(card.id, {
-                                                color: color.value,
-                                            });
-                                        }}
-                                        onmousedown={(e) => e.stopPropagation()}
-                                        aria-label="Set color {color.name}"
-                                    ></button>
-                                {/each}
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                                class="h-6 w-full cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-t flex items-center justify-end px-1"
+                                onmousedown={(e) =>
+                                    handleCardDragStart(e, element)}
+                                ontouchstart={(e) =>
+                                    handleCardDragStart(e, element)}
+                            >
+                                <div class="flex gap-1 mr-auto">
+                                    {#each CARD_COLORS.slice(0, 4) as color}
+                                        <button
+                                            class="w-3 h-3 rounded-full border border-black/10"
+                                            style="background-color: {color.value}"
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                actions.updateCard(element.id, {
+                                                    color: color.value,
+                                                });
+                                            }}
+                                            onmousedown={(e) =>
+                                                e.stopPropagation()}
+                                            aria-label="Set color {color.name}"
+                                        ></button>
+                                    {/each}
+                                </div>
+                                <button
+                                    aria-label="Delete card"
+                                    class="text-black/50 hover:text-red-600 font-bold px-1"
+                                    onclick={(e) => {
+                                        e.stopPropagation();
+                                        actions.deleteCard(element.id);
+                                    }}
+                                    onmousedown={(e) => e.stopPropagation()}
+                                >
+                                    ×
+                                </button>
                             </div>
+                            <textarea
+                                class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
+                                value={element.text}
+                                oninput={(e) => {
+                                    actions.updateCard(element.id, {
+                                        text: e.currentTarget.value,
+                                    });
+                                    // autoResizeTextarea(e); // Removed auto-resize in favor of manual resize
+                                }}
+                                onmousedown={(e) => {
+                                    e.stopPropagation();
+                                    bringToFront(element);
+                                }}
+                                aria-label="Card text"
+                            ></textarea>
+
+                            <!-- Resize Handle for Card -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                                class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-black/10 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity"
+                                onmousedown={(e) =>
+                                    handleCardResizeStart(e, element)}
+                                ontouchstart={(e) =>
+                                    handleCardResizeStart(e, element)}
+                            ></div>
+                        </div>
+                    </foreignObject>
+                {:else}
+                    <!-- Image Element -->
+                    <foreignObject
+                        x={element.x}
+                        y={element.y}
+                        width={element.width}
+                        height={element.height}
+                        class="overflow-visible pointer-events-none"
+                    >
+                        <div
+                            class="w-full h-full relative group pointer-events-auto"
+                        >
+                            <!-- Drag Handle (Overlay) -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                                class="absolute inset-0 cursor-move border-2 border-transparent group-hover:border-blue-400 transition-colors"
+                                onmousedown={(e) =>
+                                    handleImageDragStart(e, element)}
+                                ontouchstart={(e) =>
+                                    handleImageDragStart(e, element)}
+                            ></div>
+
+                            <!-- Image Content -->
+                            <div class="w-full h-full overflow-hidden">
+                                <EncryptedImage
+                                    src={element.url}
+                                    iv={element.iv}
+                                    mimetype={element.mimetype}
+                                    alt="Whiteboard Image"
+                                    class="w-full h-full object-contain pointer-events-none select-none"
+                                />
+                            </div>
+
+                            <!-- Delete Button -->
                             <button
-                                aria-label="Delete card"
-                                class="text-black/50 hover:text-red-600 font-bold px-1"
+                                class="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-md text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 z-10"
                                 onclick={(e) => {
                                     e.stopPropagation();
-                                    actions.deleteCard(card.id);
+                                    actions.deleteImage(element.id);
                                 }}
                                 onmousedown={(e) => e.stopPropagation()}
+                                aria-label="Delete image"
                             >
-                                ×
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    ><path d="M18 6 6 18" /><path
+                                        d="m6 6 12 12"
+                                    /></svg
+                                >
                             </button>
+
+                            <!-- Resize Handle -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                                class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-blue-400/50 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                onmousedown={(e) =>
+                                    handleImageResizeStart(e, element)}
+                                ontouchstart={(e) =>
+                                    handleImageResizeStart(e, element)}
+                            ></div>
                         </div>
-                        <textarea
-                            class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
-                            value={card.text}
-                            oninput={(e) => {
-                                actions.updateCard(card.id, {
-                                    text: e.currentTarget.value,
-                                });
-                                autoResizeTextarea(e);
-                                updateCardHeight(
-                                    card.id,
-                                    e.currentTarget.scrollHeight,
-                                );
-                            }}
-                            onmousedown={(e) => e.stopPropagation()}
-                            aria-label="Card text"
-                        ></textarea>
-                    </div>
-                </foreignObject>
-            {/each}
-
-            <!-- Images -->
-            {#each $images as image (image.id)}
-                <foreignObject
-                    x={image.x}
-                    y={image.y}
-                    width={image.width}
-                    height={image.height}
-                    class="overflow-visible pointer-events-none"
-                >
-                    <div
-                        class="w-full h-full relative group pointer-events-auto"
-                    >
-                        <!-- Drag Handle (Overlay) -->
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div
-                            class="absolute inset-0 cursor-move border-2 border-transparent group-hover:border-blue-400 transition-colors"
-                            onmousedown={(e) => handleImageDragStart(e, image)}
-                            ontouchstart={(e) => handleImageDragStart(e, image)}
-                        ></div>
-
-                        <!-- Image Content -->
-                        <div class="w-full h-full overflow-hidden">
-                            <EncryptedImage
-                                src={image.url}
-                                iv={image.iv}
-                                mimetype={image.mimetype}
-                                alt="Whiteboard Image"
-                                class="w-full h-full object-contain pointer-events-none select-none"
-                            />
-                        </div>
-
-                        <!-- Delete Button -->
-                        <button
-                            class="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-md text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 z-10"
-                            onclick={(e) => {
-                                e.stopPropagation();
-                                actions.deleteImage(image.id);
-                            }}
-                            onmousedown={(e) => e.stopPropagation()}
-                            aria-label="Delete image"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                ><path d="M18 6 6 18" /><path
-                                    d="m6 6 12 12"
-                                /></svg
-                            >
-                        </button>
-
-                        <!-- Resize Handle -->
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div
-                            class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-blue-400/50 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                            onmousedown={(e) =>
-                                handleImageResizeStart(e, image)}
-                            ontouchstart={(e) =>
-                                handleImageResizeStart(e, image)}
-                        ></div>
-                    </div>
-                </foreignObject>
+                    </foreignObject>
+                {/if}
             {/each}
         </svg>
     </div>

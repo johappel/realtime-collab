@@ -19,6 +19,7 @@ export interface WhiteboardCard {
     color: string;
     width: number;
     height: number;
+    zIndex: number;
 }
 
 export interface WhiteboardFrame {
@@ -39,6 +40,7 @@ export interface WhiteboardImage {
     mimetype: string;
     width: number;
     height: number;
+    zIndex: number;
 }
 
 export interface UseWhiteboardYDocResult {
@@ -187,6 +189,7 @@ export function useWhiteboardYDoc(
             yMap.set('color', color);
             yMap.set('width', 200);
             yMap.set('height', 150);
+            yMap.set('zIndex', Date.now());
             yCards.set(id, yMap);
         });
     };
@@ -201,6 +204,7 @@ export function useWhiteboardYDoc(
                 if (updates.color !== undefined) yMap.set('color', updates.color);
                 if (updates.width !== undefined) yMap.set('width', updates.width);
                 if (updates.height !== undefined) yMap.set('height', updates.height);
+                if (updates.zIndex !== undefined) yMap.set('zIndex', updates.zIndex);
             }
         });
     };
@@ -256,6 +260,7 @@ export function useWhiteboardYDoc(
             yMap.set('mimetype', mimetype);
             yMap.set('width', width);
             yMap.set('height', height);
+            yMap.set('zIndex', Date.now());
             yImages.set(id, yMap);
         });
     };
@@ -268,6 +273,7 @@ export function useWhiteboardYDoc(
                 if (updates.y !== undefined) yMap.set('y', updates.y);
                 if (updates.width !== undefined) yMap.set('width', updates.width);
                 if (updates.height !== undefined) yMap.set('height', updates.height);
+                if (updates.zIndex !== undefined) yMap.set('zIndex', updates.zIndex);
             }
         });
     };
