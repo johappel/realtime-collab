@@ -78,7 +78,7 @@ export interface UseWhiteboardYDocResult {
     updateFigure: (id: string, updates: Partial<WhiteboardFigure>) => void;
     deleteFigure: (id: string) => void;
     deleteMultiple: (cardIds: string[], imageIds: string[], frameIds: string[], figureIds?: string[]) => void;
-    clearBoard: () => void;
+    clearDrawings: () => void;
     undo: () => void;
 }
 
@@ -352,13 +352,9 @@ export function useWhiteboardYDoc(
         });
     };
 
-    const clearBoard = () => {
+    const clearDrawings = () => {
         ydoc.transact(() => {
             yPaths.delete(0, yPaths.length);
-            yCards.clear();
-            yFrames.clear();
-            yImages.clear();
-            yFigures.clear();
         });
     };
 
@@ -408,7 +404,7 @@ export function useWhiteboardYDoc(
         updateFigure,
         deleteFigure,
         deleteMultiple,
-        clearBoard,
+        clearDrawings,
         undo
     };
 }

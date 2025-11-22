@@ -140,7 +140,7 @@
             </button>
         </div>
 
-        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+        <!-- <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div> -->
         
         <!-- Zoom Controls -->
         <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded p-1 border border-gray-200 dark:border-gray-700">
@@ -178,7 +178,7 @@
             </button>
         </div>
 
-        <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+        <!-- <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div> -->
 
         {#if activeTool === "card"}
             <div class="flex items-center gap-1">
@@ -197,11 +197,11 @@
                 {/each}
             </div>
             
-            <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+            <!-- <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
             
             <span class="text-xs text-gray-500 dark:text-gray-400 italic">
                 Tipp: Markdown & URLs werden gerendert (Listen: - oder 1.)
-            </span>
+            </span> -->
         {:else if activeTool === "select" && selectedCount > 0}
             <span class="text-xs text-gray-600 dark:text-gray-300 font-medium">
                 {selectedCount} Element{selectedCount > 1 ? 'e' : ''} ausgewählt
@@ -262,19 +262,18 @@
                 <span class="hidden sm:inline">Rückgängig</span>
             </button>
             
-            <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
             
             <button
                 onclick={() => {
                     if (confirm('Möchten Sie wirklich alle Zeichnungen löschen?')) {
-                        whiteboardCanvas?.clearBoard();
+                        whiteboardCanvas?.clearDrawings();
                     }
                 }}
                 class="px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/30 rounded text-xs font-medium transition-colors flex items-center gap-1.5"
                 title="Alle Zeichnungen löschen"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                <span class="hidden sm:inline">Zeichnungen löschen</span>
+                <span class="hidden sm:inline">Löschen</span>
             </button>
         {/if}
     </div>

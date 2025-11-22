@@ -216,8 +216,8 @@
         actions.undo();
     }
 
-    export function clearBoard() {
-        actions.clearBoard();
+    export function clearDrawings() {
+        actions.clearDrawings();
     }
 
     export function deleteSelected() {
@@ -657,7 +657,7 @@
             updateFigure: result.updateFigure,
             deleteFigure: result.deleteFigure,
             deleteMultiple: result.deleteMultiple,
-            clearBoard: result.clearBoard,
+            clearDrawings: result.clearDrawings,
             undo: result.undo,
         };
 
