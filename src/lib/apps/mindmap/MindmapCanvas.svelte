@@ -18,6 +18,10 @@
     import { browser } from "$app/environment";
     import EditableNode from "./EditableNode.svelte";
     import { Trash2 } from "lucide-svelte";
+    import { resizeImage } from "$lib/imageUtils";
+    import { encryptFile, arrayBufferToHex } from "$lib/cryptoUtils";
+    import { uploadFile } from "$lib/blossomClient";
+    import { appState } from "$lib/stores/appState.svelte";
 
     let {
         documentId,
@@ -455,6 +459,76 @@
 
     export function setColorPublic(color: string) {
         setColor(color);
+    }
+
+    export async function uploadImageToSelected() {
+        const selectedNode = nodes.find((n) => n.selected);
+        if (!selectedNode) {
+            alert("Bitte wähle zuerst eine Node aus");
+            return;
+        }
+
+        // Create hidden file input
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+
+        input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+
+            const key = appState.groupPrivateKey;
+            if (!key) {
+                alert("Fehler: Kein Gruppen-Key gefunden.");
+                return;
+            }
+
+            try {
+                // 1. Resize image to max 800x800px
+                const resizedBlob = await resizeImage(file, 800, 800);
+
+                // 2. Encrypt
+                const { encryptedBlob, iv } = await encryptFile(
+                    resizedBlob,
+                    key,
+                );
+                const ivHex = arrayBufferToHex(iv.buffer as ArrayBuffer);
+
+                // 3. Upload to Blossom
+                const config = await loadConfig();
+                const result = await uploadFile(
+                    encryptedBlob,
+                    key,
+                    config.blossomServer || "https://cdn.satellite.earth",
+                    config.blossomRequireAuth ?? false,
+                );
+
+                // 4. Update node data
+                nodes = nodes.map((n) => {
+                    if (n.id === selectedNode.id) {
+                        return {
+                            ...n,
+                            data: {
+                                ...n.data,
+                                imageUrl: result.url,
+                                imageIv: ivHex,
+                                imageMimeType: file.type,
+                            },
+                        };
+                    }
+                    return n;
+                });
+
+                console.log("Image uploaded successfully:", result.url);
+            } catch (e) {
+                console.error("Image upload failed:", e);
+                alert(
+                    `Upload fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`,
+                );
+            }
+        };
+
+        input.click();
     }
 </script>
 
