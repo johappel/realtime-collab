@@ -211,6 +211,17 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                 <span class="hidden sm:inline">Löschen</span>
             </button>
+            
+            <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
+            
+            <button
+                onclick={() => whiteboardCanvas?.duplicateSelected()}
+                class="px-3 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded text-xs font-medium dark:text-gray-300 transition-colors flex items-center gap-1.5"
+                title="Duplizieren (Ctrl+D)"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="13" height="13" x="9" y="9" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span class="hidden sm:inline">Duplizieren</span>
+            </button>
         {:else if activeTool === "pen"}
             <div class="flex items-center gap-2">
                 <input

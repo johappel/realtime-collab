@@ -55,13 +55,13 @@ export interface UseWhiteboardYDocResult {
     startPath: (x: number, y: number, color: string, width: number) => string;
     updatePath: (id: string, x: number, y: number) => void;
     endPath: (id: string) => void;
-    addCard: (x: number, y: number, color: string) => void;
+    addCard: (x: number, y: number, color: string) => string;
     updateCard: (id: string, updates: Partial<WhiteboardCard>) => void;
     deleteCard: (id: string) => void;
-    addFrame: (x: number, y: number) => void;
+    addFrame: (x: number, y: number) => string;
     updateFrame: (id: string, updates: Partial<WhiteboardFrame>) => void;
     deleteFrame: (id: string) => void;
-    addImage: (x: number, y: number, url: string, iv: string, mimetype: string, width: number, height: number) => void;
+    addImage: (x: number, y: number, url: string, iv: string, mimetype: string, width: number, height: number) => string;
     updateImage: (id: string, updates: Partial<WhiteboardImage>) => void;
     deleteImage: (id: string) => void;
     deleteMultiple: (cardIds: string[], imageIds: string[], frameIds: string[]) => void;
@@ -180,8 +180,8 @@ export function useWhiteboardYDoc(
     };
 
     const addCard = (x: number, y: number, color: string) => {
+        const id = crypto.randomUUID();
         ydoc.transact(() => {
-            const id = crypto.randomUUID();
             const yMap = new Y.Map();
             yMap.set('id', id);
             yMap.set('x', x);
@@ -193,6 +193,7 @@ export function useWhiteboardYDoc(
             yMap.set('zIndex', Date.now());
             yCards.set(id, yMap);
         });
+        return id;
     };
 
     const updateCard = (id: string, updates: Partial<WhiteboardCard>) => {
@@ -217,8 +218,8 @@ export function useWhiteboardYDoc(
     };
 
     const addFrame = (x: number, y: number) => {
+        const id = crypto.randomUUID();
         ydoc.transact(() => {
-            const id = crypto.randomUUID();
             const yMap = new Y.Map();
             yMap.set('id', id);
             yMap.set('x', x);
@@ -228,6 +229,7 @@ export function useWhiteboardYDoc(
             yMap.set('height', 300);
             yFrames.set(id, yMap);
         });
+        return id;
     };
 
     const updateFrame = (id: string, updates: Partial<WhiteboardFrame>) => {
@@ -250,8 +252,8 @@ export function useWhiteboardYDoc(
     };
 
     const addImage = (x: number, y: number, url: string, iv: string, mimetype: string, width: number, height: number) => {
+        const id = crypto.randomUUID();
         ydoc.transact(() => {
-            const id = crypto.randomUUID();
             const yMap = new Y.Map();
             yMap.set('id', id);
             yMap.set('x', x);
@@ -264,6 +266,7 @@ export function useWhiteboardYDoc(
             yMap.set('zIndex', Date.now());
             yImages.set(id, yMap);
         });
+        return id;
     };
 
     const updateImage = (id: string, updates: Partial<WhiteboardImage>) => {

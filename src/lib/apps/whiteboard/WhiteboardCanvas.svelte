@@ -84,6 +84,11 @@
     let isSelecting = $state(false);
     let selectionBox = $state({ startX: 0, startY: 0, endX: 0, endY: 0 });
     let selectedElementIds = $state(new Set<string>());
+    let isDraggingSelection = $state(false);
+    let dragStartOffsets = new Map<string, {x: number, y: number}>();
+    
+    // Clipboard State
+    let clipboard: any[] = [];
     
     // Trigger reactive updates when selection changes
     let selectionVersion = $state(0);
@@ -222,6 +227,71 @@
         // Force reactivity by accessing selectionVersion
         selectionVersion;
         return selectedElementIds.size;
+    }
+    
+    export function copySelected() {
+        clipboard = [];
+        selectedElementIds.forEach(id => {
+             const card = $cards.find(c => c.id === id);
+             if (card) { clipboard.push({ ...card, type: 'card' }); return; }
+             const image = $images.find(i => i.id === id);
+             if (image) { clipboard.push({ ...image, type: 'image' }); return; }
+             const frame = $frames.find(f => f.id === id);
+             if (frame) { clipboard.push({ ...frame, type: 'frame' }); return; }
+        });
+    }
+
+    export function paste() {
+        if (clipboard.length === 0) return;
+        
+        // Deselect current
+        selectedElementIds.clear();
+        
+        // Offset for paste
+        const offset = 20;
+        
+        clipboard.forEach(item => {
+            if (item.type === 'card') {
+                const newId = actions.addCard(item.x + offset, item.y + offset, item.color);
+                actions.updateCard(newId, { 
+                    text: item.text, 
+                    width: item.width, 
+                    height: item.height, 
+                    zIndex: Date.now() 
+                });
+                selectedElementIds.add(newId);
+            } else if (item.type === 'frame') {
+                const newId = actions.addFrame(item.x + offset, item.y + offset);
+                actions.updateFrame(newId, { 
+                    label: item.label, 
+                    width: item.width, 
+                    height: item.height 
+                });
+                selectedElementIds.add(newId);
+            } else if (item.type === 'image') {
+                const newId = actions.addImage(
+                    item.x + offset, 
+                    item.y + offset, 
+                    item.url, 
+                    item.iv, 
+                    item.mimetype, 
+                    item.width, 
+                    item.height
+                );
+                actions.updateImage(newId, { 
+                    width: item.width, 
+                    height: item.height, 
+                    zIndex: Date.now() 
+                });
+                selectedElementIds.add(newId);
+            }
+        });
+        updateSelectionVersion();
+    }
+    
+    export function duplicateSelected() {
+        copySelected();
+        paste();
     }
     
     export function zoomIn() {
@@ -403,6 +473,26 @@
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Shift') {
                 isShiftPressed = true;
+            }
+            
+            // Copy/Paste/Duplicate shortcuts
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'c') {
+                    copySelected();
+                } else if (e.key === 'v') {
+                    paste();
+                } else if (e.key === 'd') {
+                    e.preventDefault(); // Prevent bookmark dialog
+                    duplicateSelected();
+                }
+            }
+            
+            // Delete shortcut
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Only delete if not editing text
+                if (!editingCardId && selectedElementIds.size > 0) {
+                    deleteSelected();
+                }
             }
         };
         const handleKeyUp = (e: KeyboardEvent) => {
@@ -756,6 +846,55 @@
             updateSelection();
             return;
         }
+        
+        // Handle Multi-Selection Drag
+        if (isDraggingSelection) {
+            dragStartOffsets.forEach((offset, id) => {
+                const newX = x - offset.x;
+                const newY = y - offset.y;
+                
+                if ($cards.some(c => c.id === id)) {
+                    actions.updateCard(id, { x: newX, y: newY });
+                } else if ($images.some(i => i.id === id)) {
+                    actions.updateImage(id, { x: newX, y: newY });
+                } else if ($frames.some(f => f.id === id)) {
+                    actions.updateFrame(id, { x: newX, y: newY });
+                    
+                    // If dragging a frame, we might need to update attached items too?
+                    // But if attached items are ALSO selected, they will be moved by this loop anyway.
+                    // If attached items are NOT selected, they should move with the frame?
+                    // Current logic for single frame drag handles attached items.
+                    // For multi-drag, it's complicated. 
+                    // If I select a frame AND a card inside it, both move.
+                    // If I select ONLY the frame, the card inside should move too.
+                    // Let's handle attached items for frames here too.
+                    
+                    // Check if this frame has attached items that are NOT in selection
+                    // (If they are in selection, they are moved by the loop)
+                    const frame = $frames.find(f => f.id === id);
+                    if (frame) {
+                        const dx = newX - frame.x;
+                        const dy = newY - frame.y;
+                        
+                        // Find items inside this frame
+                        $cards.forEach(c => {
+                            if (!selectedElementIds.has(c.id)) {
+                                const cx = c.x + c.width / 2;
+                                const cy = c.y + c.height / 2;
+                                // Use old frame position for check? No, frame is already updated in Yjs? 
+                                // No, we are calculating new position.
+                                // We need to know if card WAS inside frame.
+                                // This is getting complex for multi-drag.
+                                // Let's simplify: If dragging selection, only move selected items.
+                                // Users can select frame + content if they want to move both.
+                                // OR: We can keep the single-frame logic if ONLY one frame is selected?
+                            }
+                        });
+                    }
+                }
+            });
+            return;
+        }
 
         if (isDrawing && currentPathId) {
             actions.updatePath(currentPathId, x, y);
@@ -838,9 +977,9 @@
             isPanning = false;
             saveViewState(); // Save state after panning
         }
-        if (draggingCardId || draggingFrameId || draggingImageId || resizingCardId || resizingFrameId || resizingImageId) {
-            // Save state after moving elements (optional, but good if we want to save zoom/pan changes that might have happened)
-            // Actually, moving elements doesn't change view state, but let's be safe.
+        if (isDraggingSelection) {
+            isDraggingSelection = false;
+            dragStartOffsets.clear();
         }
         
         isDrawing = false;
@@ -867,15 +1006,47 @@
             activeTool = "select";
         }
         
-        // Clear selection when clicking on an element
-        if (selectedElementIds.size > 0) {
-            selectedElementIds.clear();
+        const { x, y } = getPoint(e);
+        
+        // Multi-Selection Logic
+        if (e.shiftKey || e.ctrlKey) {
+            // Toggle selection
+            if (selectedElementIds.has(card.id)) {
+                selectedElementIds.delete(card.id);
+            } else {
+                selectedElementIds.add(card.id);
+            }
             updateSelectionVersion();
+            // If deselected, don't drag
+            if (!selectedElementIds.has(card.id)) return;
+        } else {
+            // If clicking an unselected item without modifier, select ONLY it
+            if (!selectedElementIds.has(card.id)) {
+                selectedElementIds.clear();
+                selectedElementIds.add(card.id);
+                updateSelectionVersion();
+            }
+            // If clicking an ALREADY selected item, keep selection (to allow moving group)
         }
         
-        const { x, y } = getPoint(e);
+        // Prepare for dragging all selected items
+        isDraggingSelection = true;
+        dragStartOffsets.clear();
+        
+        selectedElementIds.forEach(id => {
+            const item = $cards.find(c => c.id === id) || 
+                         $images.find(i => i.id === id) || 
+                         $frames.find(f => f.id === id);
+            if (item) {
+                dragStartOffsets.set(id, {
+                    x: x - item.x,
+                    y: y - item.y
+                });
+            }
+        });
+        
+        // Also set single drag ID for z-index
         draggingCardId = card.id;
-        dragOffset = { x: x - card.x, y: y - card.y };
         bringToFront(card);
     }
 
@@ -908,43 +1079,75 @@
             activeTool = "select";
         }
         
-        // Clear selection when clicking on an element
-        if (selectedElementIds.size > 0) {
-            selectedElementIds.clear();
+        const { x, y } = getPoint(e);
+        
+        // Multi-Selection Logic
+        if (e.shiftKey || e.ctrlKey) {
+            if (selectedElementIds.has(frame.id)) {
+                selectedElementIds.delete(frame.id);
+            } else {
+                selectedElementIds.add(frame.id);
+            }
             updateSelectionVersion();
+            if (!selectedElementIds.has(frame.id)) return;
+        } else {
+            if (!selectedElementIds.has(frame.id)) {
+                selectedElementIds.clear();
+                selectedElementIds.add(frame.id);
+                updateSelectionVersion();
+            }
         }
         
-        const { x, y } = getPoint(e);
-        draggingFrameId = frame.id;
-        dragOffset = { x: x - frame.x, y: y - frame.y };
-
-        attachedCardIds.clear();
-        $cards.forEach((card) => {
-            const cx = card.x + card.width / 2;
-            const cy = card.y + card.height / 2;
-            if (
-                cx >= frame.x &&
-                cx <= frame.x + frame.width &&
-                cy >= frame.y &&
-                cy <= frame.y + frame.height
-            ) {
-                attachedCardIds.add(card.id);
+        // Prepare for dragging all selected items
+        isDraggingSelection = true;
+        dragStartOffsets.clear();
+        
+        selectedElementIds.forEach(id => {
+            const item = $cards.find(c => c.id === id) || 
+                         $images.find(i => i.id === id) || 
+                         $frames.find(f => f.id === id);
+            if (item) {
+                dragStartOffsets.set(id, {
+                    x: x - item.x,
+                    y: y - item.y
+                });
             }
         });
-
-        attachedImageIds.clear();
-        $images.forEach((image) => {
-            const cx = image.x + image.width / 2;
-            const cy = image.y + image.height / 2;
-            if (
-                cx >= frame.x &&
-                cx <= frame.x + frame.width &&
-                cy >= frame.y &&
-                cy <= frame.y + frame.height
-            ) {
-                attachedImageIds.add(image.id);
-            }
-        });
+        
+        // Fallback to single drag logic if only this frame is selected (to handle attached items)
+        if (selectedElementIds.size === 1 && selectedElementIds.has(frame.id)) {
+            isDraggingSelection = false; // Disable generic multi-drag
+            draggingFrameId = frame.id;  // Enable specific frame drag
+            dragOffset = { x: x - frame.x, y: y - frame.y };
+    
+            attachedCardIds.clear();
+            $cards.forEach((card) => {
+                const cx = card.x + card.width / 2;
+                const cy = card.y + card.height / 2;
+                if (
+                    cx >= frame.x &&
+                    cx <= frame.x + frame.width &&
+                    cy >= frame.y &&
+                    cy <= frame.y + frame.height
+                ) {
+                    attachedCardIds.add(card.id);
+                }
+            });
+    
+            attachedImageIds.clear();
+            $images.forEach((image) => {
+                const cx = image.x + image.width / 2;
+                const cy = image.y + image.height / 2;
+                if (
+                    cx >= frame.x &&
+                    cx <= frame.x + frame.width &&
+                    cy >= frame.y &&
+                    cy <= frame.y + frame.height
+                ) {
+                    attachedImageIds.add(image.id);
+                }
+            });
+        }
     }
 
     function handleFrameResizeStart(
@@ -975,15 +1178,42 @@
             activeTool = "select";
         }
         
-        // Clear selection when clicking on an element
-        if (selectedElementIds.size > 0) {
-            selectedElementIds.clear();
+        const { x, y } = getPoint(e);
+        
+        // Multi-Selection Logic
+        if (e.shiftKey || e.ctrlKey) {
+            if (selectedElementIds.has(image.id)) {
+                selectedElementIds.delete(image.id);
+            } else {
+                selectedElementIds.add(image.id);
+            }
             updateSelectionVersion();
+            if (!selectedElementIds.has(image.id)) return;
+        } else {
+            if (!selectedElementIds.has(image.id)) {
+                selectedElementIds.clear();
+                selectedElementIds.add(image.id);
+                updateSelectionVersion();
+            }
         }
         
-        const { x, y } = getPoint(e);
+        // Prepare for dragging all selected items
+        isDraggingSelection = true;
+        dragStartOffsets.clear();
+        
+        selectedElementIds.forEach(id => {
+            const item = $cards.find(c => c.id === id) || 
+                         $images.find(i => i.id === id) || 
+                         $frames.find(f => f.id === id);
+            if (item) {
+                dragStartOffsets.set(id, {
+                    x: x - item.x,
+                    y: y - item.y
+                });
+            }
+        });
+        
         draggingImageId = image.id;
-        dragOffset = { x: x - image.x, y: y - image.y };
         bringToFront(image);
     }
 
