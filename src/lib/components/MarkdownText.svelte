@@ -17,11 +17,13 @@
 
 	const renderMarkdown = (input: string): string => {
 		const linkedText = autoLinkText(input);
-		const html = marked.parseInline(linkedText) as string;
+		
+		// Use marked.parse() for block elements (lists) instead of parseInline()
+		const html = marked.parse(linkedText) as string;
 
-		// Sanitize HTML to prevent XSS
+		// Sanitize HTML to prevent XSS - now including list tags
 		return DOMPurify.sanitize(html, {
-			ALLOWED_TAGS: ['a', 'strong', 'em', 'code', 'del', 'br'],
+			ALLOWED_TAGS: ['a', 'strong', 'em', 'code', 'del', 'br', 'ul', 'ol', 'li', 'p'],
 			ALLOWED_ATTR: ['href', 'target', 'rel']
 		});
 	};
@@ -35,9 +37,10 @@
 
 <style>
 	.markdown-text {
-		display: inline;
+		display: block;
 		word-wrap: break-word;
 		overflow-wrap: break-word;
+		line-height: 1.5;
 	}
 
 	/* Default (light backgrounds) */
@@ -97,5 +100,44 @@
 	.markdown-text :global(del) {
 		text-decoration: line-through;
 		opacity: 0.7;
+	}
+
+	/* Paragraph spacing */
+	.markdown-text :global(p) {
+		margin: 0 0 0.5em 0;
+	}
+
+	.markdown-text :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	/* List styles */
+	.markdown-text :global(ul),
+	.markdown-text :global(ol) {
+		margin: 0.5em 0;
+		padding-left: 1.5em;
+	}
+
+	.markdown-text :global(li) {
+		margin: 0.25em 0;
+	}
+
+	.markdown-text :global(ul) {
+		list-style-type: disc;
+	}
+
+	.markdown-text :global(ol) {
+		list-style-type: decimal;
+	}
+
+	/* Nested lists */
+	.markdown-text :global(ul ul),
+	.markdown-text :global(ol ul) {
+		list-style-type: circle;
+	}
+
+	.markdown-text :global(ul ul ul),
+	.markdown-text :global(ol ul ul) {
+		list-style-type: square;
 	}
 </style>

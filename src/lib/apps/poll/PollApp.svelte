@@ -348,7 +348,7 @@
                 </button>
             </div>
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Tipp: URLs werden automatisch verlinkt. Markdown-Formatierung: **fett**, *kursiv*, `code`, ~~durchgestrichen~~
+                Tipp: URLs werden automatisch verlinkt. Markdown: **fett**, *kursiv*, `code`, ~~durchgestrichen~~, Listen: - oder 1.
             </div>
         </div>
     {/if}

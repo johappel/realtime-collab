@@ -120,7 +120,7 @@
             <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
             
             <span class="text-xs text-gray-500 dark:text-gray-400 italic">
-                Tipp: Markdown & URLs werden automatisch gerendert
+                Tipp: Markdown & URLs werden gerendert (Listen: - oder 1.)
             </span>
         {:else if activeTool === "pen"}
             <div class="flex items-center gap-2">
