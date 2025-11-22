@@ -14,11 +14,13 @@
 
   const pageStore = $state($page);
   const documentId = $derived(pageStore.params.documentId ?? "default");
-  const isMarkdownView = $derived($page.url.searchParams.has('markdown'));
-  
+  const isMarkdownView = $derived($page.url.searchParams.has("markdown"));
+
   let fetchedContent = $state<string | null>(null);
-  const urlContent = $derived($page.url.searchParams.get('content') || $page.url.searchParams.get('text'));
-  const fileUrl = $derived($page.url.searchParams.get('file'));
+  const urlContent = $derived(
+    $page.url.searchParams.get("content") || $page.url.searchParams.get("text"),
+  );
+  const fileUrl = $derived($page.url.searchParams.get("file"));
 
   $effect(() => {
     if (fileUrl) {
@@ -40,25 +42,39 @@
 
   let awareness: Awareness | null = $state(null);
   let editor: Editor | null = $state(null);
-  
+
   let showHistory = $state(false);
   let maxWidth = $state(1024);
-  
+
   let markdownContent = $state("");
   let docTitle = $state(untrack(() => documentId));
   let snapshots: Event[] = $state([]);
   let provider: any = $state(null);
 
-  onMount(() => {
-      appState.init();
-      const storedWidth = localStorage.getItem("editor_max_width");
-      if (storedWidth) {
-          maxWidth = parseInt(storedWidth, 10);
-      }
+  onMount(async () => {
+    appState.init();
+    const storedWidth = localStorage.getItem("editor_max_width");
+    if (storedWidth) {
+      maxWidth = parseInt(storedWidth, 10);
+    }
+
+    // Check for URL parameters for auto-login with group code
+    const urlParams = new URLSearchParams(window.location.search);
+    const groupCode = urlParams.get("code");
+    const nickname = urlParams.get("name");
+
+    if (groupCode) {
+      // Auto-login with group code
+      await appState.setGroupCode(groupCode, nickname || undefined);
+      await appState.initGroup();
+
+      // Remove parameters from URL after processing
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   });
-  
+
   $effect(() => {
-      localStorage.setItem("editor_max_width", maxWidth.toString());
+    localStorage.setItem("editor_max_width", maxWidth.toString());
   });
 
   $effect(() => {
@@ -74,10 +90,10 @@
       };
 
       update();
-      editor.on('update', update);
+      editor.on("update", update);
 
       return () => {
-        editor?.off('update', update);
+        editor?.off("update", update);
       };
     }
   });
@@ -128,17 +144,19 @@
   }
 
   function handleSaveSnapshot() {
-      if (provider && typeof provider.saveSnapshot === 'function') {
-          provider.saveSnapshot().catch(console.error);
-      }
+    if (provider && typeof provider.saveSnapshot === "function") {
+      provider.saveSnapshot().catch(console.error);
+    }
   }
 
   function handleLoadSnapshot(snapshot: Event) {
-      if (provider && typeof provider.applySnapshot === 'function') {
-          provider.applySnapshot(snapshot);
-      } else {
-          alert("Snapshot laden wird noch nicht unterstützt (Provider nicht bereit).");
-      }
+    if (provider && typeof provider.applySnapshot === "function") {
+      provider.applySnapshot(snapshot);
+    } else {
+      alert(
+        "Snapshot laden wird noch nicht unterstützt (Provider nicht bereit).",
+      );
+    }
   }
 </script>
 
@@ -147,71 +165,73 @@
 </svelte:head>
 
 {#snippet editorToolbar()}
-    <EditorToolbar {editor} />
+  <EditorToolbar {editor} />
 {/snippet}
 
 <main class="page">
   {#if !isMarkdownView}
-    <AppHeader 
-        bind:documentId={docTitle}
-        {awareness}
-        bind:showHistory
-        bind:maxWidth
-        onDownload={handleDownload}
-        toolbar={editorToolbar}
-        showEditorControls={true}
+    <AppHeader
+      bind:documentId={docTitle}
+      {awareness}
+      bind:showHistory
+      bind:maxWidth
+      onDownload={handleDownload}
+      toolbar={editorToolbar}
+      showEditorControls={true}
     />
   {/if}
-  
+
   <div class="content-wrapper">
     <section class="editor-container" class:visually-hidden={isMarkdownView}>
-        {#key appState.mode}
+      {#key appState.mode}
         <TipTapEditor
-            {documentId}
-            user={appState.user}
-            mode={appState.mode}
-            {maxWidth}
-            {initialContent}
-            bind:title={docTitle}
-            onAwarenessReady={handleAwarenessReady}
-            bind:editor={editor}
-            bind:provider={provider}
-            onSnapshots={(s) => snapshots = s}
+          {documentId}
+          user={appState.user}
+          mode={appState.mode}
+          {maxWidth}
+          {initialContent}
+          bind:title={docTitle}
+          onAwarenessReady={handleAwarenessReady}
+          bind:editor
+          bind:provider
+          onSnapshots={(s) => (snapshots = s)}
         />
-        {/key}
+      {/key}
     </section>
 
-    {#if showHistory && appState.mode === 'nostr'}
-        <HistorySidebar 
-            {snapshots} 
-            onSaveSnapshot={handleSaveSnapshot}
-            onLoadSnapshot={handleLoadSnapshot}
-        />
+    {#if showHistory && appState.mode === "nostr"}
+      <HistorySidebar
+        {snapshots}
+        onSaveSnapshot={handleSaveSnapshot}
+        onLoadSnapshot={handleLoadSnapshot}
+      />
     {/if}
   </div>
 
   {#if isMarkdownView}
-    <pre class="markdown-output">{markdownContent || 'Loading...'}</pre>
+    <pre class="markdown-output">{markdownContent || "Loading..."}</pre>
   {/if}
 
   {#if !isMarkdownView}
-  <footer class="footer">
+    <footer class="footer">
       <div class="status-item">
-          <strong>Mode:</strong> {appState.mode}
+        <strong>Mode:</strong>
+        {appState.mode}
       </div>
-      {#if appState.mode === 'nostr'}
-      <div class="status-item">
-          <strong>Relays:</strong> {appState.relays.join(', ')}
-      </div>
+      {#if appState.mode === "nostr"}
+        <div class="status-item">
+          <strong>Relays:</strong>
+          {appState.relays.join(", ")}
+        </div>
       {/if}
-  </footer>
+    </footer>
   {/if}
 </main>
 
 <style>
   :global(body) {
-      margin: 0;
-      overflow: hidden;
+    margin: 0;
+    overflow: hidden;
   }
 
   .page {
@@ -226,9 +246,9 @@
   }
 
   .content-wrapper {
-      flex-grow: 1;
-      display: flex;
-      overflow: hidden;
+    flex-grow: 1;
+    display: flex;
+    overflow: hidden;
   }
 
   .editor-container {
@@ -243,40 +263,40 @@
   :global(.dark) .editor-container {
     background-color: #1f2937;
   }
-  
+
   /* Override TipTapEditor styles to fit */
   :global(.editor-container .editor) {
-      border: none;
-      border-radius: 0;
-      height: 100%;
+    border: none;
+    border-radius: 0;
+    height: 100%;
   }
 
   .footer {
-      flex-shrink: 0;
-      padding: 0.25rem 1rem;
-      background-color: #f3f4f6;
-      border-top: 1px solid #e5e7eb;
-      font-size: 0.75rem;
-      color: #6b7280;
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      height: 1.5rem;
+    flex-shrink: 0;
+    padding: 0.25rem 1rem;
+    background-color: #f3f4f6;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.75rem;
+    color: #6b7280;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    height: 1.5rem;
   }
 
   :global(.dark) .footer {
-      background-color: #1f2937;
-      border-top-color: #374151;
-      color: #9ca3af;
+    background-color: #1f2937;
+    border-top-color: #374151;
+    color: #9ca3af;
   }
 
   .status-item strong {
-      font-weight: 600;
-      color: #4b5563;
+    font-weight: 600;
+    color: #4b5563;
   }
 
   :global(.dark) .status-item strong {
-      color: #d1d5db;
+    color: #d1d5db;
   }
 
   .visually-hidden {

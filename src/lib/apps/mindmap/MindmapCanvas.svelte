@@ -1,56 +1,71 @@
 <script lang="ts">
-    import { SvelteFlow, Background, Controls, type Node, type Edge, Position } from '@xyflow/svelte';
-    import '@xyflow/svelte/dist/style.css';
-    import { writable, type Writable } from 'svelte/store';
-    import { theme } from '$lib/stores/theme.svelte';
-    import { useMindmapYDoc } from './useMindmapYDoc';
-    import { onMount, onDestroy, untrack } from 'svelte';
-    import { loadConfig } from '$lib/config';
-    import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
-    import * as Y from 'yjs';
-    import { browser } from '$app/environment';
-    import EditableNode from './EditableNode.svelte';
-    import { Trash2 } from 'lucide-svelte';
+    import {
+        SvelteFlow,
+        Background,
+        Controls,
+        type Node,
+        type Edge,
+        Position,
+    } from "@xyflow/svelte";
+    import "@xyflow/svelte/dist/style.css";
+    import { writable, type Writable } from "svelte/store";
+    import { theme } from "$lib/stores/theme.svelte";
+    import { useMindmapYDoc } from "./useMindmapYDoc";
+    import { onMount, onDestroy, untrack } from "svelte";
+    import { loadConfig } from "$lib/config";
+    import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
+    import * as Y from "yjs";
+    import { browser } from "$app/environment";
+    import EditableNode from "./EditableNode.svelte";
+    import { Trash2 } from "lucide-svelte";
 
-    let { 
-        documentId, 
-        user = { name: 'Anon', color: '#ff0000' },
-        mode = 'local',
-        toolbarState = $bindable({ hasSelection: false, layout: 'vertical' as 'vertical' | 'horizontal' }),
-        title = $bindable(''),
-        awareness = $bindable(null)
+    let {
+        documentId,
+        user = { name: "Anon", color: "#ff0000" },
+        mode = "local",
+        toolbarState = $bindable({
+            hasSelection: false,
+            layout: "vertical" as "vertical" | "horizontal",
+        }),
+        title = $bindable(""),
+        awareness = $bindable(null),
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
-        mode?: 'local' | 'nostr';
-        toolbarState?: { hasSelection: boolean; layout: 'vertical' | 'horizontal' };
+        mode?: "local" | "nostr" | "group";
+        toolbarState?: {
+            hasSelection: boolean;
+            layout: "vertical" | "horizontal";
+        };
         title?: string;
         awareness?: any;
     }>();
 
     export const colors = [
-        { color: '', label: 'Default' },
-        { color: '#ffcdd2', label: 'Red' },
-        { color: '#bbdefb', label: 'Blue' },
-        { color: '#c8e6c9', label: 'Green' },
-        { color: '#fff9c4', label: 'Yellow' },
-        { color: '#e1bee7', label: 'Purple' },
+        { color: "", label: "Default" },
+        { color: "#ffcdd2", label: "Red" },
+        { color: "#bbdefb", label: "Blue" },
+        { color: "#c8e6c9", label: "Green" },
+        { color: "#fff9c4", label: "Yellow" },
+        { color: "#e1bee7", label: "Purple" },
     ];
 
     const nodeTypes = {
         editable: EditableNode as any,
-        default: EditableNode as any
+        default: EditableNode as any,
     };
 
     // Stores from Yjs (source of truth)
     let nodesStore: Writable<Node[]> = $state(writable([]));
     let edgesStore: Writable<Edge[]> = $state(writable([]));
-    let layoutStore: Writable<'horizontal' | 'vertical'> = $state(writable('vertical'));
-    
+    let layoutStore: Writable<"horizontal" | "vertical"> = $state(
+        writable("vertical"),
+    );
+
     // Local state for SvelteFlow (UI)
     let nodes = $state<Node[]>([]);
     let edges = $state<Edge[]>([]);
-    let layout = $state<'horizontal' | 'vertical'>('vertical');
+    let layout = $state<"horizontal" | "vertical">("vertical");
 
     let yNodes: Y.Map<Node> | null = null;
     let yEdges: Y.Map<Edge> | null = null;
@@ -62,11 +77,11 @@
     let isUpdatingEdgesInternal = false;
 
     onMount(async () => {
-        let pubkey = '';
+        let pubkey = "";
         let relays: string[] = [];
         let signAndPublish: any = null;
 
-        if (mode === 'nostr') {
+        if (mode === "nostr") {
             try {
                 const config = await loadConfig();
                 relays = config.docRelays;
@@ -83,7 +98,7 @@
             user,
             pubkey,
             signAndPublish,
-            relays
+            relays,
         );
 
         nodesStore = result.nodes;
@@ -107,13 +122,17 @@
         };
 
         metaMap.observe(handleMetaUpdate);
-        
+
         // Initial sync
         const storedTitle = metaMap.get("mindmap-title") as string;
         untrack(() => {
             if (storedTitle !== undefined && storedTitle !== title) {
                 title = storedTitle;
-            } else if (storedTitle === undefined && title && title !== documentId) {
+            } else if (
+                storedTitle === undefined &&
+                title &&
+                title !== documentId
+            ) {
                 metaMap.set("mindmap-title", title);
             }
         });
@@ -131,7 +150,7 @@
         if (!ydoc) return;
         const metaMap = ydoc.getMap("metadata");
         const storedTitle = metaMap.get("mindmap-title") as string;
-        
+
         if (title && title !== storedTitle) {
             metaMap.set("mindmap-title", title);
         }
@@ -145,11 +164,12 @@
                 name: user.name,
                 color: user.color,
             };
-            
-            if (!currentState || 
-                currentState.user?.name !== newUser.name || 
-                currentState.user?.color !== newUser.color) {
-                
+
+            if (
+                !currentState ||
+                currentState.user?.name !== newUser.name ||
+                currentState.user?.color !== newUser.color
+            ) {
                 awareness.setLocalStateField("user", newUser);
             }
         }
@@ -157,15 +177,17 @@
 
     // Sync Store -> State (Layout)
     $effect(() => {
-        const unsub = layoutStore.subscribe(l => {
+        const unsub = layoutStore.subscribe((l) => {
             layout = l;
             // Update node handles when layout changes
             const currentNodes = untrack(() => nodes);
             if (currentNodes.length > 0) {
-                nodes = currentNodes.map(n => ({
+                nodes = currentNodes.map((n) => ({
                     ...n,
-                    sourcePosition: l === 'horizontal' ? Position.Right : Position.Bottom,
-                    targetPosition: l === 'horizontal' ? Position.Left : Position.Top
+                    sourcePosition:
+                        l === "horizontal" ? Position.Right : Position.Bottom,
+                    targetPosition:
+                        l === "horizontal" ? Position.Left : Position.Top,
                 }));
             }
         });
@@ -174,31 +196,45 @@
 
     // Sync Store -> State (Nodes)
     $effect(() => {
-        const unsub = nodesStore.subscribe(n => {
+        const unsub = nodesStore.subscribe((n) => {
             if (!isUpdatingNodesInternal) {
                 // Ensure editable nodes have the min-width class on the wrapper
                 // And ensure correct handle positions based on current layout
                 const currentLayout = untrack(() => layout);
-                nodes = n.map(node => {
+                nodes = n.map((node) => {
                     let updated = node;
-                    
+
                     // Min-width check
-                    if ((node.type === 'editable' || node.type === 'default') && !node.class?.includes('min-w-[200px]')) {
-                        updated = { 
-                            ...updated, 
-                            class: (updated.class ? updated.class + ' ' : '') + 'min-w-[200px]' 
+                    if (
+                        (node.type === "editable" || node.type === "default") &&
+                        !node.class?.includes("min-w-[200px]")
+                    ) {
+                        updated = {
+                            ...updated,
+                            class:
+                                (updated.class ? updated.class + " " : "") +
+                                "min-w-[200px]",
                         };
                     }
 
                     // Handle position check
-                    const targetSource = currentLayout === 'horizontal' ? Position.Right : Position.Bottom;
-                    const targetTarget = currentLayout === 'horizontal' ? Position.Left : Position.Top;
+                    const targetSource =
+                        currentLayout === "horizontal"
+                            ? Position.Right
+                            : Position.Bottom;
+                    const targetTarget =
+                        currentLayout === "horizontal"
+                            ? Position.Left
+                            : Position.Top;
 
-                    if (updated.sourcePosition !== targetSource || updated.targetPosition !== targetTarget) {
+                    if (
+                        updated.sourcePosition !== targetSource ||
+                        updated.targetPosition !== targetTarget
+                    ) {
                         updated = {
                             ...updated,
                             sourcePosition: targetSource,
-                            targetPosition: targetTarget
+                            targetPosition: targetTarget,
                         };
                     }
 
@@ -220,7 +256,7 @@
 
     // Sync Store -> State (Edges)
     $effect(() => {
-        const unsub = edgesStore.subscribe(e => {
+        const unsub = edgesStore.subscribe((e) => {
             if (!isUpdatingEdgesInternal) {
                 edges = e;
             }
@@ -240,27 +276,27 @@
     onDestroy(() => {
         if (cleanup) cleanup();
     });
-    
+
     function addNode(parentId?: string) {
         if (!yNodes) return;
-        
+
         let position = { x: Math.random() * 400, y: Math.random() * 400 };
-        
+
         // If parent exists, place new node relative to it
         if (parentId) {
-            const parent = nodes.find(n => n.id === parentId);
+            const parent = nodes.find((n) => n.id === parentId);
             if (parent) {
-                if (layout === 'horizontal') {
+                if (layout === "horizontal") {
                     // Place to the right
-                    position = { 
-                        x: parent.position.x + 300, 
-                        y: parent.position.y + (Math.random() - 0.5) * 100 
+                    position = {
+                        x: parent.position.x + 300,
+                        y: parent.position.y + (Math.random() - 0.5) * 100,
                     };
                 } else {
                     // Place below
-                    position = { 
-                        x: parent.position.x + (Math.random() - 0.5) * 100, 
-                        y: parent.position.y + 150 
+                    position = {
+                        x: parent.position.x + (Math.random() - 0.5) * 100,
+                        y: parent.position.y + 150,
                     };
                 }
             }
@@ -271,20 +307,20 @@
 
     function addSiblingNode(node: Node) {
         if (!yNodes) return;
-        
+
         // Calculate vertical offset based on node height
         // Use measured height if available (from SvelteFlow), otherwise fallback
         const currentHeight = node.measured?.height ?? 80;
         const gap = 10; // Small gap between nodes
 
         // Find parent
-        const parentEdge = edges.find(e => e.target === node.id);
-        
+        const parentEdge = edges.find((e) => e.target === node.id);
+
         // Position relative to the CURRENT node (the sibling)
         // We place it directly below the current node
         const position = {
             x: node.position.x,
-            y: node.position.y + currentHeight + gap
+            y: node.position.y + currentHeight + gap,
         };
 
         if (!parentEdge) {
@@ -297,22 +333,24 @@
         createNode(position, parentId);
     }
 
-    function createNode(position: { x: number, y: number }, parentId?: string) {
+    function createNode(position: { x: number; y: number }, parentId?: string) {
         const id = crypto.randomUUID();
-        
+
         const newNode: Node = {
             id,
-            type: 'editable',
-            data: { label: 'New Node', content: '', initialFocus: true },
+            type: "editable",
+            data: { label: "New Node", content: "", initialFocus: true },
             position,
-            class: 'min-w-[200px]',
+            class: "min-w-[200px]",
             selected: true,
-            sourcePosition: layout === 'horizontal' ? Position.Right : Position.Bottom,
-            targetPosition: layout === 'horizontal' ? Position.Left : Position.Top
+            sourcePosition:
+                layout === "horizontal" ? Position.Right : Position.Bottom,
+            targetPosition:
+                layout === "horizontal" ? Position.Left : Position.Top,
         };
 
         // Update local state: Deselect others and add new node
-        nodes = nodes.map(n => ({ ...n, selected: false }));
+        nodes = nodes.map((n) => ({ ...n, selected: false }));
         nodes = [...nodes, newNode];
 
         // Create edge if parent exists
@@ -321,25 +359,27 @@
                 id: crypto.randomUUID(),
                 source: parentId,
                 target: id,
-                type: 'default'
+                type: "default",
             };
             edges = [...edges, newEdge];
         }
     }
 
     function toggleLayout() {
-        const newLayout = layout === 'vertical' ? 'horizontal' : 'vertical';
+        const newLayout = layout === "vertical" ? "horizontal" : "vertical";
         layoutStore.set(newLayout);
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-        const isInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+        const isInput =
+            event.target instanceof HTMLInputElement ||
+            event.target instanceof HTMLTextAreaElement;
 
-        if (event.key === 'Insert') {
+        if (event.key === "Insert") {
             // Always allow Insert, even in inputs
             event.preventDefault();
-            const selectedNode = nodes.find(n => n.selected);
-            
+            const selectedNode = nodes.find((n) => n.selected);
+
             if (event.ctrlKey && selectedNode) {
                 // Add Sibling
                 addSiblingNode(selectedNode);
@@ -350,33 +390,35 @@
             return;
         }
 
-        if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (event.key === "Delete" || event.key === "Backspace") {
             if (isInput) return; // Allow deleting text in inputs
-            
+
             // Manually handle deletion of selected nodes/edges
-            const hasSelection = nodes.some(n => n.selected) || edges.some(e => e.selected);
+            const hasSelection =
+                nodes.some((n) => n.selected) || edges.some((e) => e.selected);
             if (hasSelection) {
                 event.preventDefault();
-                nodes = nodes.filter(n => !n.selected);
-                edges = edges.filter(e => !e.selected);
+                nodes = nodes.filter((n) => !n.selected);
+                edges = edges.filter((e) => !e.selected);
             }
         }
     }
 
     function deleteSelected() {
-        const hasSelection = nodes.some(n => n.selected) || edges.some(e => e.selected);
+        const hasSelection =
+            nodes.some((n) => n.selected) || edges.some((e) => e.selected);
         if (hasSelection) {
-            nodes = nodes.filter(n => !n.selected);
-            edges = edges.filter(e => !e.selected);
+            nodes = nodes.filter((n) => !n.selected);
+            edges = edges.filter((e) => !e.selected);
         }
     }
 
     function setColor(color: string) {
-        nodes = nodes.map(n => {
+        nodes = nodes.map((n) => {
             if (n.selected) {
                 return {
                     ...n,
-                    data: { ...n.data, color }
+                    data: { ...n.data, color },
                 };
             }
             return n;
@@ -384,8 +426,10 @@
     }
 
     // Derived state for UI
-    let selectedNodes = $derived(nodes.filter(n => n.selected));
-    let hasSelection = $derived(selectedNodes.length > 0 || edges.some(e => e.selected));
+    let selectedNodes = $derived(nodes.filter((n) => n.selected));
+    let hasSelection = $derived(
+        selectedNodes.length > 0 || edges.some((e) => e.selected),
+    );
 
     $effect(() => {
         toolbarState.hasSelection = hasSelection;
@@ -396,7 +440,7 @@
         if (parentId) {
             addNode(parentId);
         } else {
-            const selectedNode = nodes.find(n => n.selected);
+            const selectedNode = nodes.find((n) => n.selected);
             addNode(selectedNode?.id);
         }
     }
@@ -418,17 +462,17 @@
 
 <div style="height: 100%; width: 100%; position: relative;">
     {#if browser}
-    <SvelteFlow 
-        bind:nodes={nodes} 
-        bind:edges={edges} 
-        {nodeTypes}
-        fitView
-        class="h-full w-full"
-        colorMode={theme.isDark ? 'dark' : 'light'}
-    >
-        <Background />
-        <Controls />
-    </SvelteFlow>
+        <SvelteFlow
+            bind:nodes
+            bind:edges
+            {nodeTypes}
+            fitView
+            class="h-full w-full"
+            colorMode={theme.isDark ? "dark" : "light"}
+        >
+            <Background />
+            <Controls />
+        </SvelteFlow>
     {/if}
 </div>
 

@@ -46,11 +46,11 @@ export async function signAndPublishNip07(
     // 2. Veröffentlichen
     // Wir nutzen hier unsere eigene RelayConnection-Logik statt nostr-tools SimplePool,
     // um konsistente Verbindungen zu gewährleisten und Probleme mit SimplePool zu vermeiden.
-    
+
     const publishPromises = relays.map(url => {
         return new Promise<void>((resolve, reject) => {
             const conn = getRelayConnection(url);
-            
+
             const timeout = setTimeout(() => {
                 reject(new Error(`Timeout publishing to ${url}`));
             }, 5000);
@@ -90,7 +90,7 @@ export async function signAndPublishNip07(
         }
         throw error;
     }
-    
+
     return signedEvent;
 }
 
@@ -101,10 +101,62 @@ export async function getNip07Pubkey(): Promise<string> {
     return window.nostr.getPublicKey();
 }
 
+/**
+ * Generiert einen deterministischen Nostr Private Key aus einem Gruppen-Code.
+ * Nutzt SHA-256 als Seed, damit alle Gruppenmitglieder mit demselben Code
+ * denselben Private Key erhalten und somit auf die gleichen Inhalte zugreifen können.
+ * 
+ * @param code - Der 8-stellige Gruppen-Code (z.B. "KURS-A-2024")
+ * @returns Hex-encoded Private Key (64 Zeichen)
+ */
+export async function generateKeyFromCode(code: string): Promise<string> {
+    // Normalisiere den Code (trim, uppercase) für Konsistenz
+    const normalizedCode = code.trim().toUpperCase();
+
+    // SHA-256 Hash des Codes
+    const encoder = new TextEncoder();
+    const data = encoder.encode(normalizedCode);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+    // Konvertiere zu Hex-String
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    return hashHex;
+}
+
+/**
+ * Holt oder setzt die lokale Identität (Nickname) aus dem LocalStorage.
+ * Wenn kein Nickname vorhanden ist, wird null zurückgegeben, damit die UI
+ * den Nutzer zur Eingabe auffordern kann.
+ * 
+ * @param nickname - Optional: Setzt einen neuen Nickname
+ * @returns Der gespeicherte Nickname oder null
+ */
+export function getOrSetLocalIdentity(nickname?: string): string | null {
+    const STORAGE_KEY = 'collab_user_nickname';
+
+    if (nickname !== undefined) {
+        localStorage.setItem(STORAGE_KEY, nickname);
+        return nickname;
+    }
+
+    return localStorage.getItem(STORAGE_KEY);
+}
+
+/**
+ * Löscht die lokale Identität aus dem LocalStorage.
+ * Nützlich für Logout oder Identitätswechsel.
+ */
+export function clearLocalIdentity(): void {
+    localStorage.removeItem('collab_user_nickname');
+}
+
+
 export async function fetchNostrProfile(pubkey: string, relays: string[] = ['ws://localhost:7000']): Promise<{ name?: string, picture?: string, about?: string } | null> {
     return new Promise((resolve) => {
         let resolved = false;
-        
+
         // Wir nutzen hier unsere NativeRelay-Klasse, da sie zuverlässiger im Browser funktioniert
         const relay = new NativeRelay(relays[0], (event) => {
             if (resolved) return;
@@ -162,10 +214,10 @@ class RelayConnection {
 
     private connect() {
         if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
-        
+
         if (this.debug) console.log(`[RelayConnection] Connecting to ${this.url}`);
         this.ws = new WebSocket(this.url);
-        
+
         this.ws.onopen = () => {
             console.log(`[RelayConnection] Connected to ${this.url}`);
             this.openListeners.forEach(cb => cb());
@@ -175,9 +227,9 @@ class RelayConnection {
             try {
                 const data = JSON.parse(msg.data);
                 if (!Array.isArray(data)) return;
-                
+
                 const [type, subId, payload] = data;
-                
+
                 if (type === 'EVENT') {
                     const sub = this.subscriptions.get(subId);
                     if (sub) sub.onEvent(payload as Event);
@@ -195,7 +247,7 @@ class RelayConnection {
         this.ws.onerror = (err) => {
             // console.error(`[RelayConnection] Error on ${this.url}`, err);
         };
-        
+
         this.ws.onclose = () => {
             console.log(`[RelayConnection] Disconnected from ${this.url}`);
             // Auto-reconnect after delay
@@ -217,7 +269,7 @@ class RelayConnection {
             this.ws.send(JSON.stringify(data));
         }
     }
-    
+
     public isOpen() {
         return this.ws && this.ws.readyState === WebSocket.OPEN;
     }
@@ -228,7 +280,7 @@ class RelayConnection {
         }
         this.openListeners.add(cb);
     }
-    
+
     public offOpen(cb: () => void) {
         this.openListeners.delete(cb);
     }
@@ -236,7 +288,7 @@ class RelayConnection {
 
 const relayPool = new Map<string, RelayConnection>();
 
-function getRelayConnection(url: string): RelayConnection {
+export function getRelayConnection(url: string): RelayConnection {
     if (!relayPool.has(url)) {
         relayPool.set(url, new RelayConnection(url));
     }
@@ -254,7 +306,7 @@ export class NativeRelay {
         this.connection = getRelayConnection(url);
         this.debug = debug;
         this.subId = 'sub-' + Math.random().toString(36).substring(2);
-        
+
         // Register subscription immediately
         this.connection.subscribe(this.subId, { onEvent, onEOSE });
     }
@@ -265,10 +317,10 @@ export class NativeRelay {
 
     public sendReq(filter: any) {
         const req = ["REQ", this.subId, filter];
-        
+
         const send = () => {
-             if (this.debug) console.log(`[NativeRelay] Sending REQ to ${this.connection.url}`, req);
-             this.connection.send(req);
+            if (this.debug) console.log(`[NativeRelay] Sending REQ to ${this.connection.url}`, req);
+            this.connection.send(req);
         };
 
         // If we already have a listener, remove it to avoid duplicates if sendReq is called multiple times
@@ -282,7 +334,7 @@ export class NativeRelay {
 
     public close() {
         if (this.connection.isOpen()) {
-             this.connection.send(["CLOSE", this.subId]);
+            this.connection.send(["CLOSE", this.subId]);
         }
         this.connection.unsubscribe(this.subId);
         if (this.openListener) {

@@ -4,7 +4,7 @@
 
     const { awareness, mode = "local" } = $props<{
         awareness: Awareness | null;
-        mode?: "local" | "nostr";
+        mode?: "local" | "nostr" | "group";
     }>();
 
     // Derive active users from awareness
@@ -18,11 +18,11 @@
 
         // Reset state (force reactivity)
         pulsingUsers[id] = false;
-        
+
         setTimeout(() => {
             pulsingUsers[id] = true;
             // console.log('Pulse ON', id);
-            
+
             timeouts[id] = setTimeout(() => {
                 pulsingUsers[id] = false;
                 // console.log('Pulse OFF', id);
@@ -39,16 +39,22 @@
         }
 
         const updateUsers = () => {
-            const activeUsers: Array<{ id: number; name: string; color: string }> = [];
-            currentAwareness.getStates().forEach((state: any, clientId: number) => {
-                if (state.user) {
-                    activeUsers.push({
-                        id: clientId,
-                        name: state.user.name || "Anonym",
-                        color: state.user.color || "#999",
-                    });
-                }
-            });
+            const activeUsers: Array<{
+                id: number;
+                name: string;
+                color: string;
+            }> = [];
+            currentAwareness
+                .getStates()
+                .forEach((state: any, clientId: number) => {
+                    if (state.user) {
+                        activeUsers.push({
+                            id: clientId,
+                            name: state.user.name || "Anonym",
+                            color: state.user.color || "#999",
+                        });
+                    }
+                });
             users = activeUsers;
         };
 
@@ -70,10 +76,10 @@
         updateUsers();
 
         // Listen for changes
-        currentAwareness.on('change', onChange);
-        
+        currentAwareness.on("change", onChange);
+
         return () => {
-            currentAwareness.off('change', onChange);
+            currentAwareness.off("change", onChange);
         };
     });
 </script>
@@ -93,7 +99,7 @@
         <div class="presence-avatars">
             {#each users as user (user.id)}
                 <div
-                     class="avatar {pulsingUsers[user.id] ? 'pulsing' : ''}"
+                    class="avatar {pulsingUsers[user.id] ? 'pulsing' : ''}"
                     style="background-color: {user.color}"
                     title={user.name}
                 >

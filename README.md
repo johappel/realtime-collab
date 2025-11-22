@@ -21,6 +21,14 @@ Ein **Google Docs-ähnlicher Realtime-Editor** mit Svelte 5, TipTap, Yjs und Nos
 - Farbcodierte Benutzer
 - Presence-Liste mit aktiven Nutzern
 
+🎓 **Lerngruppen-Support (22.11.2025)**
+- **Dual-Mode Authentifizierung**:
+  - Standard: NIP-07 Browser Extension (persönliche Identität)
+  - Gruppen: 8-stelliger Code für vereinfachten Zugang
+- **URL-Parameter**: `?code=KURS-A&name=Max` für QR-Code-Onboarding
+- **Lokale Identität**: Nickname-Persistenz im Browser
+
+
 ## Installation
 
 ```bash

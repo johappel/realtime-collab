@@ -38,7 +38,7 @@
   } = $props<{
     documentId: string;
     user?: { name: string; color: string };
-    mode?: "local" | "nostr";
+    mode?: "local" | "nostr" | "group";
     onAwarenessReady?: (awareness: Awareness | null) => void;
     editor?: Editor | null;
     provider?: any;
@@ -81,20 +81,46 @@
         let newAwarenessProvider: any = null;
         let newPersistence: any = null;
 
-        if (mode === "nostr") {
-          const pubkey = await getNip07Pubkey();
+        if (mode === "nostr" || mode === "group") {
+          // Both nostr and group mode use Nostr relays
           const config = await loadConfig();
+          let pubkey: string;
+          let signAndPublish: (evt: any) => Promise<any>;
+
+          if (mode === "group") {
+            // Group mode: use private key from appState
+            const { appState } = await import("$lib/stores/appState.svelte");
+            const { signWithPrivateKey } = await import("$lib/groupAuth");
+            const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
+
+            if (!appState.groupPrivateKey) {
+              throw new Error(
+                "Kein Gruppen-Key gefunden. Bitte melde dich erneut an.",
+              );
+            }
+
+            pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
+            signAndPublish = (evt: any) =>
+              signWithPrivateKey(
+                evt,
+                appState.groupPrivateKey!,
+                config.docRelays,
+              );
+          } else {
+            // Standard nostr mode: use NIP-07
+            pubkey = await getNip07Pubkey();
+            signAndPublish = (evt: any) =>
+              signAndPublishNip07(evt, config.docRelays);
+          }
+
           if (cancelled) return;
-          // Hier initialisieren wir den Nostr-Provider.
-          // useNostrYDoc erstellt intern eine Y.Doc Instanz und verbindet sie via NostrYDocProvider mit den Relays.
-          // Der dritte Parameter ist die Callback-Funktion zum Signieren und Publizieren von Events.
-          // Der vierte Parameter aktiviert den Debug-Modus (true = Logs anzeigen).
+
           const result = useNostrYDoc(
             documentId,
             pubkey,
-            (evt) => signAndPublishNip07(evt, config.docRelays),
-            false, // Debug-Modus an für Diagnose
-            config.docRelays
+            signAndPublish,
+            false,
+            config.docRelays,
           );
           newYdoc = result.ydoc;
           newAwareness = result.awareness;
@@ -104,7 +130,7 @@
 
           // Bind snapshots
           if (onSnapshots) {
-              newProvider.onSnapshot = onSnapshots;
+            newProvider.onSnapshot = onSnapshots;
           }
         } else {
           const result = useLocalYDoc(documentId);
@@ -118,7 +144,10 @@
           if (newProvider && typeof newProvider.destroy === "function") {
             newProvider.destroy();
           }
-          if (newAwarenessProvider && typeof newAwarenessProvider.destroy === "function") {
+          if (
+            newAwarenessProvider &&
+            typeof newAwarenessProvider.destroy === "function"
+          ) {
             newAwarenessProvider.destroy();
           }
           if (newPersistence && typeof newPersistence.destroy === "function") {
@@ -156,7 +185,10 @@
       if (provider && typeof provider.destroy === "function") {
         provider.destroy();
       }
-      if (awarenessProvider && typeof awarenessProvider.destroy === "function") {
+      if (
+        awarenessProvider &&
+        typeof awarenessProvider.destroy === "function"
+      ) {
         awarenessProvider.destroy();
       }
       if (awareness) {
@@ -188,11 +220,12 @@
         name: editorUser.name,
         color: editorUser.color,
       };
-      
-      if (!currentState || 
-          currentState.user?.name !== newUser.name || 
-          currentState.user?.color !== newUser.color) {
-          
+
+      if (
+        !currentState ||
+        currentState.user?.name !== newUser.name ||
+        currentState.user?.color !== newUser.color
+      ) {
         awareness.setLocalStateField("user", newUser);
       }
     }
@@ -215,14 +248,14 @@
     };
 
     metaMap.observe(handleMetaUpdate);
-    
+
     // Initial sync
     const storedTitle = metaMap.get("editor-title") as string;
     untrack(() => {
       if (storedTitle !== undefined && storedTitle !== title) {
-          title = storedTitle;
+        title = storedTitle;
       } else if (storedTitle === undefined && title && title !== documentId) {
-           metaMap.set("editor-title", title);
+        metaMap.set("editor-title", title);
       }
     });
 
@@ -233,13 +266,13 @@
 
   // Write title changes to Yjs
   $effect(() => {
-      if (!ydoc) return;
-      const metaMap = ydoc.getMap("metadata");
-      const storedTitle = metaMap.get("editor-title") as string;
-      
-      if (title && title !== storedTitle) {
-          metaMap.set("editor-title", title);
-      }
+    if (!ydoc) return;
+    const metaMap = ydoc.getMap("metadata");
+    const storedTitle = metaMap.get("editor-title") as string;
+
+    if (title && title !== storedTitle) {
+      metaMap.set("editor-title", title);
+    }
   });
 
   $effect(() => {
@@ -303,29 +336,29 @@
 
     // Inject initial content if provided and document is empty
     if (initialContent && ydoc) {
-      const yXmlFragment = ydoc.getXmlFragment('prosemirror');
+      const yXmlFragment = ydoc.getXmlFragment("prosemirror");
       // Only insert if document is effectively empty (length 0 or just empty paragraph)
       // Note: Checking yXmlFragment.length might be enough, but TipTap structure is complex.
       // For simplicity, we check if the Yjs type is empty.
       if (yXmlFragment.length === 0) {
-         // We need to wait for the editor to be ready to parse HTML/Markdown?
-         // Actually, we can just setContent on the editor instance.
-         // But we should be careful not to overwrite if we are in collaborative mode and data is coming in.
-         // However, if yXmlFragment is empty, it means we have no data yet.
-         
-         // Wait a tick to ensure everything is initialized?
-         setTimeout(async () => {
-             if (instance.isEmpty) {
-                 try {
-                    const htmlContent = await marked.parse(initialContent);
-                    instance.commands.setContent(htmlContent);
-                 } catch (e) {
-                    console.error("Failed to parse initial markdown content", e);
-                    // Fallback to plain text if parsing fails
-                    instance.commands.setContent(initialContent);
-                 }
-             }
-         }, 100);
+        // We need to wait for the editor to be ready to parse HTML/Markdown?
+        // Actually, we can just setContent on the editor instance.
+        // But we should be careful not to overwrite if we are in collaborative mode and data is coming in.
+        // However, if yXmlFragment is empty, it means we have no data yet.
+
+        // Wait a tick to ensure everything is initialized?
+        setTimeout(async () => {
+          if (instance.isEmpty) {
+            try {
+              const htmlContent = await marked.parse(initialContent);
+              instance.commands.setContent(htmlContent);
+            } catch (e) {
+              console.error("Failed to parse initial markdown content", e);
+              // Fallback to plain text if parsing fails
+              instance.commands.setContent(initialContent);
+            }
+          }
+        }, 100);
       }
     }
 
@@ -356,49 +389,49 @@
     </div>
   {/if}
   <div class="editor-content" bind:this={editorElement}></div>
-  
+
   <div class="bubble-menu" bind:this={bubbleMenuElement}>
     {#if editor}
       <button
         onclick={() => editor?.chain().focus().addColumnBefore().run()}
-        title="Add Column Before"
-      >Col ←</button>
+        title="Add Column Before">Col ←</button
+      >
       <button
         onclick={() => editor?.chain().focus().addColumnAfter().run()}
-        title="Add Column After"
-      >Col →</button>
+        title="Add Column After">Col →</button
+      >
       <button
         onclick={() => editor?.chain().focus().deleteColumn().run()}
-        title="Delete Column"
-      >Del Col</button>
+        title="Delete Column">Del Col</button
+      >
       <span class="separator">|</span>
       <button
         onclick={() => editor?.chain().focus().addRowBefore().run()}
-        title="Add Row Before"
-      >Row ↑</button>
+        title="Add Row Before">Row ↑</button
+      >
       <button
         onclick={() => editor?.chain().focus().addRowAfter().run()}
-        title="Add Row After"
-      >Row ↓</button>
+        title="Add Row After">Row ↓</button
+      >
       <button
         onclick={() => editor?.chain().focus().deleteRow().run()}
-        title="Delete Row"
-      >Del Row</button>
+        title="Delete Row">Del Row</button
+      >
       <span class="separator">|</span>
       <button
         onclick={() => editor?.chain().focus().mergeCells().run()}
-        title="Merge Cells"
-      >Merge</button>
+        title="Merge Cells">Merge</button
+      >
       <button
         onclick={() => editor?.chain().focus().splitCell().run()}
-        title="Split Cell"
-      >Split</button>
+        title="Split Cell">Split</button
+      >
       <span class="separator">|</span>
       <button
         onclick={() => editor?.chain().focus().deleteTable().run()}
         title="Delete Table"
-        class="danger"
-      >Delete Table</button>
+        class="danger">Delete Table</button
+      >
     {/if}
   </div>
 </div>
@@ -520,7 +553,9 @@
     background-color: white;
     padding: 0.2rem;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid #e5e7eb;
     gap: 0.25rem;
     align-items: center;
@@ -530,7 +565,9 @@
   :global(.dark) .bubble-menu {
     background-color: #1f2937;
     border-color: #374151;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.5),
+      0 2px 4px -1px rgba(0, 0, 0, 0.3);
   }
 
   :global(.tippy-box) .bubble-menu {

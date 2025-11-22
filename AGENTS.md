@@ -1,6 +1,6 @@
 # AGENTS – Anweisungen für Co-Developer & AI-Agents
 
-Dieses Dokument beschreibt, wie eine **Multi-App-Plattform** (Text-Editor, Mindmap, Todo-Liste) auf Basis von **Svelte 5**, **Yjs** und **Nostr-Relays** aufgebaut und weiterentwickelt werden soll. Es richtet sich explizit an menschliche Contributor **und** AI-Agents (z. B. GitHub Copilot, CI-Bots).
+Dieses Dokument beschreibt, wie eine **Multi-App-Plattform** (Text-Editor, Mindmap, Todo-Liste) auf Basis von **Svelte 5**, **Yjs** und **Nostr-Relays** aufgebaut und weiterentwickelt werden soll. Es richtet sich explizit an menschliche Contributor **und** AI-Agents (z. B. GitHub Copilot, CI-Bots).
 
 ---
 
@@ -8,7 +8,7 @@ Dieses Dokument beschreibt, wie eine **Multi-App-Plattform** (Text-Editor, Mindm
 
 Eine Suite von **Local-First Kollaborations-Tools**, die:
 
-- in **Svelte 5** (Runes) laufen,
+-in **Svelte 5** (Runes) laufen,
 - **Yjs** als universellen **CRDT**-State-Container nutzen,
 - **Nostr-Relays** als **verteilten Message-Bus** für Yjs- und Presence-Updates verwenden,
 - verschiedene App-Typen (Text, Mindmap, Todo) auf derselben technischen Basis unterstützen.
@@ -93,9 +93,14 @@ Wenn du (als AI-Agent) Code generierst oder anpasst, halte dich an diese Regeln:
    - Updates immer als Base64 in Nostr-Events verpacken.
 4. **Sichere Signatur-Logik:**
    - `signAndPublish` wird immer von außen injiziert (NIP-07).
-5. **Keine Infrastruktur-Annahmen:**
+5. **Authentifizierung (Dual-Mode - NEU 22.11.2025):**
+   - **Standard-Modus**: NIP-07 Browser Extension für persönliche Identität
+   - **Gruppen-Modus**: `generateKeyFromCode()` für Lerngruppen (deterministischer Key aus Code)
+   - Nickname-Persistenz via `getOrSetLocalIdentity()` im LocalStorage
+   - URL-Parameter Support: `?code=KURS-A&name=Max`
+6. **Keine Infrastruktur-Annahmen:**
    - Keine Hardcoded Relay-URLs.
-6. **Verbindungs-Management (CRITICAL):**
+7. **Verbindungs-Management (CRITICAL):**
    - **NIEMALS** `SimplePool` oder neue WebSocket-Verbindungen direkt erstellen.
    - Immer `getRelayConnection` aus `nostrUtils.ts` verwenden.
    - Relays blockieren Clients mit zu vielen parallelen Verbindungen.
@@ -108,7 +113,7 @@ Wenn du (als AI-Agent) Code generierst oder anpasst, halte dich an diese Regeln:
 - `useTodoYDoc` / `useMindmapYDoc` / `useWikiYDoc` – App-spezifische Logik-Layer.
 - `NostrYDocProvider` – Bidirektionales Binding Yjs ↔ Nostr.
 - `NostrAwarenessProvider` – Binding Yjs-Awareness ↔ Nostr.
-- `nostrUtils.ts` – Enthält `RelayConnection` Pool. **Wichtig:** Immer `getRelayConnection` nutzen, niemals `SimplePool` direkt instanziieren, um Verbindungsabbrüche zu vermeiden.
+- `nostrUtils.ts` – Enthält `RelayConnection` Pool + **Group Code** Utilities. **Wichtig:** Immer `getRelayConnection` nutzen, niemals `SimplePool` direkt instanziieren, um Verbindungsabbrüche zu vermeiden.
 
 ---
 

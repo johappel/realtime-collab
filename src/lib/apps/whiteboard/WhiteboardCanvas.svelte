@@ -1,27 +1,32 @@
 <script lang="ts">
-    import { onMount, onDestroy, untrack } from 'svelte';
-    import { writable, type Writable } from 'svelte/store';
-    import { useWhiteboardYDoc, type DrawPath, type WhiteboardCard, type WhiteboardFrame } from './useWhiteboardYDoc';
-    import { loadConfig } from '$lib/config';
-    import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
-    import { theme } from '$lib/stores/theme.svelte';
-    import * as Y from 'yjs';
+    import { onMount, onDestroy, untrack } from "svelte";
+    import { writable, type Writable } from "svelte/store";
+    import {
+        useWhiteboardYDoc,
+        type DrawPath,
+        type WhiteboardCard,
+        type WhiteboardFrame,
+    } from "./useWhiteboardYDoc";
+    import { loadConfig } from "$lib/config";
+    import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
+    import { theme } from "$lib/stores/theme.svelte";
+    import * as Y from "yjs";
 
-    let { 
-        documentId, 
-        user = { name: 'Anon', color: '#ff0000' },
-        mode = 'local',
-        activeTool = $bindable('select'),
-        currentColor = $bindable('#000000'),
+    let {
+        documentId,
+        user = { name: "Anon", color: "#ff0000" },
+        mode = "local",
+        activeTool = $bindable("select"),
+        currentColor = $bindable("#000000"),
         currentWidth = $bindable(3),
-        cardColor = $bindable('#fff9c4'),
-        title = $bindable(''),
-        awareness = $bindable(null)
+        cardColor = $bindable("#fff9c4"),
+        title = $bindable(""),
+        awareness = $bindable(null),
     } = $props<{
         documentId: string;
         user?: { name: string; color: string };
-        mode?: 'local' | 'nostr';
-        activeTool?: 'pen' | 'card' | 'frame' | 'select';
+        mode?: "local" | "nostr" | "group";
+        activeTool?: "pen" | "card" | "frame" | "select";
         currentColor?: string;
         currentWidth?: number;
         cardColor?: string;
@@ -37,13 +42,13 @@
     let ydoc: Y.Doc | null = $state(null);
 
     const CARD_COLORS = [
-        { name: 'Yellow', value: '#fff9c4' },
-        { name: 'Post-It', value: '#fff176' },
-        { name: 'Pink', value: '#f8bbd0' },
-        { name: 'Green', value: '#c8e6c9' },
-        { name: 'Orange', value: '#ffe0b2' },
-        { name: 'Purple', value: '#e1bee7' },
-        { name: 'Blue', value: '#bbdefb' }
+        { name: "Yellow", value: "#fff9c4" },
+        { name: "Post-It", value: "#fff176" },
+        { name: "Pink", value: "#f8bbd0" },
+        { name: "Green", value: "#c8e6c9" },
+        { name: "Orange", value: "#ffe0b2" },
+        { name: "Purple", value: "#e1bee7" },
+        { name: "Blue", value: "#bbdefb" },
     ];
 
     // Interaction State
@@ -55,7 +60,7 @@
     let attachedCardIds: Set<string> = new Set();
     let dragOffset = { x: 0, y: 0 };
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
-    
+
     const MAX_CARD_HEIGHT = 300;
 
     // Canvas Ref
@@ -70,11 +75,11 @@
     }
 
     onMount(async () => {
-        let pubkey = '';
+        let pubkey = "";
         let relays: string[] = [];
         let signAndPublish: any = null;
 
-        if (mode === 'nostr') {
+        if (mode === "nostr") {
             try {
                 const config = await loadConfig();
                 relays = config.docRelays;
@@ -91,7 +96,7 @@
             user,
             pubkey,
             signAndPublish,
-            relays
+            relays,
         );
 
         paths = result.paths;
@@ -111,7 +116,7 @@
             updateFrame: result.updateFrame,
             deleteFrame: result.deleteFrame,
             clearBoard: result.clearBoard,
-            undo: result.undo
+            undo: result.undo,
         };
 
         // Title Sync Logic
@@ -126,13 +131,17 @@
         };
 
         metaMap.observe(handleMetaUpdate);
-        
+
         // Initial sync
         const storedTitle = metaMap.get("whiteboard-title") as string;
         untrack(() => {
             if (storedTitle !== undefined && storedTitle !== title) {
                 title = storedTitle;
-            } else if (storedTitle === undefined && title && title !== documentId) {
+            } else if (
+                storedTitle === undefined &&
+                title &&
+                title !== documentId
+            ) {
                 metaMap.set("whiteboard-title", title);
             }
         });
@@ -150,7 +159,7 @@
         if (!ydoc) return;
         const metaMap = ydoc.getMap("metadata");
         const storedTitle = metaMap.get("whiteboard-title") as string;
-        
+
         if (title && title !== storedTitle) {
             metaMap.set("whiteboard-title", title);
         }
@@ -164,11 +173,12 @@
                 name: user.name,
                 color: user.color,
             };
-            
-            if (!currentState || 
-                currentState.user?.name !== newUser.name || 
-                currentState.user?.color !== newUser.color) {
-                
+
+            if (
+                !currentState ||
+                currentState.user?.name !== newUser.name ||
+                currentState.user?.color !== newUser.color
+            ) {
                 awareness.setLocalStateField("user", newUser);
             }
         }
@@ -178,10 +188,10 @@
         if (cleanup) cleanup();
     });
 
-    function getPoint(e: MouseEvent | TouchEvent): { x: number, y: number } {
+    function getPoint(e: MouseEvent | TouchEvent): { x: number; y: number } {
         const rect = svgElement.getBoundingClientRect();
         let clientX, clientY;
-        
+
         if (window.TouchEvent && e instanceof TouchEvent) {
             clientX = e.touches[0].clientX;
             clientY = e.touches[0].clientY;
@@ -189,34 +199,34 @@
             clientX = (e as MouseEvent).clientX;
             clientY = (e as MouseEvent).clientY;
         }
-        
+
         return {
             x: clientX - rect.left,
-            y: clientY - rect.top
+            y: clientY - rect.top,
         };
     }
 
     function handleStart(e: MouseEvent | TouchEvent) {
         // If clicking on a card/frame handle, those handlers will fire first and stop propagation if needed.
         // But if we are here, we clicked on the canvas or a non-interactive part.
-        
-        if (activeTool === 'select') return; 
-        
+
+        if (activeTool === "select") return;
+
         // Don't prevent default immediately if we might be interacting with form elements
         // But for drawing, we need to.
-        if (activeTool === 'pen') e.preventDefault();
+        if (activeTool === "pen") e.preventDefault();
 
         const { x, y } = getPoint(e);
 
-        if (activeTool === 'pen') {
+        if (activeTool === "pen") {
             isDrawing = true;
             currentPathId = actions.startPath(x, y, currentColor, currentWidth);
-        } else if (activeTool === 'card') {
+        } else if (activeTool === "card") {
             actions.addCard(x - 100, y - 75, cardColor);
-            activeTool = 'select'; 
-        } else if (activeTool === 'frame') {
+            activeTool = "select";
+        } else if (activeTool === "frame") {
             actions.addFrame(x, y);
-            activeTool = 'select';
+            activeTool = "select";
         }
     }
 
@@ -229,10 +239,10 @@
         } else if (draggingCardId) {
             actions.updateCard(draggingCardId, {
                 x: x - dragOffset.x,
-                y: y - dragOffset.y
+                y: y - dragOffset.y,
             });
         } else if (draggingFrameId) {
-            const frame = $frames.find(f => f.id === draggingFrameId);
+            const frame = $frames.find((f) => f.id === draggingFrameId);
             if (frame) {
                 const newX = x - dragOffset.x;
                 const newY = y - dragOffset.y;
@@ -241,16 +251,16 @@
 
                 actions.updateFrame(draggingFrameId, {
                     x: newX,
-                    y: newY
+                    y: newY,
                 });
 
                 // Move attached cards
-                attachedCardIds.forEach(cardId => {
-                    const card = $cards.find(c => c.id === cardId);
+                attachedCardIds.forEach((cardId) => {
+                    const card = $cards.find((c) => c.id === cardId);
                     if (card) {
                         actions.updateCard(cardId, {
                             x: card.x + dx,
-                            y: card.y + dy
+                            y: card.y + dy,
                         });
                     }
                 });
@@ -260,7 +270,7 @@
             const dy = y - resizeStart.y;
             actions.updateFrame(resizingFrameId, {
                 width: Math.max(100, resizeStart.width + dx),
-                height: Math.max(100, resizeStart.height + dy)
+                height: Math.max(100, resizeStart.height + dy),
             });
         }
     }
@@ -276,59 +286,72 @@
         resizingFrameId = null;
     }
 
-    function handleCardDragStart(e: MouseEvent | TouchEvent, card: WhiteboardCard) {
-        if (activeTool !== 'select') return;
+    function handleCardDragStart(
+        e: MouseEvent | TouchEvent,
+        card: WhiteboardCard,
+    ) {
+        if (activeTool !== "select") return;
         e.stopPropagation();
-        
+
         const { x, y } = getPoint(e);
         draggingCardId = card.id;
         dragOffset = {
             x: x - card.x,
-            y: y - card.y
+            y: y - card.y,
         };
     }
 
-    function handleFrameDragStart(e: MouseEvent | TouchEvent, frame: WhiteboardFrame) {
-        if (activeTool !== 'select') return;
+    function handleFrameDragStart(
+        e: MouseEvent | TouchEvent,
+        frame: WhiteboardFrame,
+    ) {
+        if (activeTool !== "select") return;
         e.stopPropagation();
-        
+
         const { x, y } = getPoint(e);
         draggingFrameId = frame.id;
         dragOffset = {
             x: x - frame.x,
-            y: y - frame.y
+            y: y - frame.y,
         };
 
         // Find attached cards (center point inside frame)
         attachedCardIds.clear();
-        $cards.forEach(card => {
+        $cards.forEach((card) => {
             const cx = card.x + card.width / 2;
             const cy = card.y + card.height / 2;
-            if (cx >= frame.x && cx <= frame.x + frame.width &&
-                cy >= frame.y && cy <= frame.y + frame.height) {
+            if (
+                cx >= frame.x &&
+                cx <= frame.x + frame.width &&
+                cy >= frame.y &&
+                cy <= frame.y + frame.height
+            ) {
                 attachedCardIds.add(card.id);
             }
         });
     }
 
-    function handleFrameResizeStart(e: MouseEvent | TouchEvent, frame: WhiteboardFrame) {
-        if (activeTool !== 'select') return;
+    function handleFrameResizeStart(
+        e: MouseEvent | TouchEvent,
+        frame: WhiteboardFrame,
+    ) {
+        if (activeTool !== "select") return;
         e.stopPropagation();
-        
+
         const { x, y } = getPoint(e);
         resizingFrameId = frame.id;
         resizeStart = {
             x,
             y,
             width: frame.width,
-            height: frame.height
+            height: frame.height,
         };
     }
 
     function autoResizeTextarea(e: Event) {
         const target = e.target as HTMLTextAreaElement;
-        target.style.height = 'auto';
-        target.style.height = target.scrollHeight + 'px';
+        target.style.height = "auto";
+        target.style.height = target.scrollHeight + "px";
         // Update card height in model if needed, or just let it visually expand
         // If we want the card background to grow, we need to update the model height
         // But for now, let's just let the textarea grow within the foreignObject.
@@ -337,13 +360,22 @@
     }
 
     function updateCardHeight(id: string, height: number) {
-        actions.updateCard(id, { height: Math.min(MAX_CARD_HEIGHT, Math.max(150, height + 40)) }); // +40 for padding/header
+        actions.updateCard(id, {
+            height: Math.min(MAX_CARD_HEIGHT, Math.max(150, height + 40)),
+        }); // +40 for padding/header
     }
 
     function pointsToPath(points: number[][]): string {
-        if (points.length === 0) return '';
-        if (points.length === 1) return `M ${points[0][0]} ${points[0][1]} L ${points[0][0]} ${points[0][1]}`;
-        return `M ${points[0][0]} ${points[0][1]} ` + points.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
+        if (points.length === 0) return "";
+        if (points.length === 1)
+            return `M ${points[0][0]} ${points[0][1]} L ${points[0][0]} ${points[0][1]}`;
+        return (
+            `M ${points[0][0]} ${points[0][1]} ` +
+            points
+                .slice(1)
+                .map((p) => `L ${p[0]} ${p[1]}`)
+                .join(" ")
+        );
     }
 </script>
 
@@ -351,7 +383,7 @@
     <!-- Canvas -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div 
+    <div
         class="flex-1 relative overflow-hidden cursor-crosshair touch-none bg-gray-100 dark:bg-gray-900 outline-none"
         role="application"
         aria-label="Whiteboard drawing area"
@@ -364,51 +396,56 @@
         ontouchmove={handleMove}
         ontouchend={handleEnd}
     >
-        <svg 
-            bind:this={svgElement}
-            class="w-full h-full block"
-        >
+        <svg bind:this={svgElement} class="w-full h-full block">
             <!-- Frames (Behind everything) -->
             {#each $frames as frame (frame.id)}
-                <foreignObject 
-                    x={frame.x} 
-                    y={frame.y} 
-                    width={frame.width} 
+                <foreignObject
+                    x={frame.x}
+                    y={frame.y}
+                    width={frame.width}
                     height={frame.height}
                     class="overflow-visible pointer-events-none"
                 >
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div 
+                    <div
                         class="w-full h-full border-2 border-dashed border-gray-400 rounded-lg flex flex-col relative pointer-events-auto bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
                     >
                         <!-- Frame Header / Drag Handle -->
-                        <div 
+                        <div
                             class="h-8 bg-gray-200/80 rounded-t-md flex items-center px-2 cursor-move"
                             onmousedown={(e) => handleFrameDragStart(e, frame)}
                             ontouchstart={(e) => handleFrameDragStart(e, frame)}
                         >
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 class="bg-transparent border-none outline-none text-sm font-bold text-gray-700 w-full"
                                 value={frame.label}
-                                oninput={(e) => actions.updateFrame(frame.id, { label: e.currentTarget.value })}
+                                oninput={(e) =>
+                                    actions.updateFrame(frame.id, {
+                                        label: e.currentTarget.value,
+                                    })}
                                 onmousedown={(e) => e.stopPropagation()}
                             />
-                            <button 
+                            <button
                                 aria-label="Delete frame"
                                 class="ml-2 text-gray-500 hover:text-red-500"
-                                onclick={(e) => { e.stopPropagation(); actions.deleteFrame(frame.id); }}
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    actions.deleteFrame(frame.id);
+                                }}
                                 onmousedown={(e) => e.stopPropagation()}
                             >
                                 ×
                             </button>
                         </div>
-                        
+
                         <!-- Resize Handle -->
-                        <div 
+                        <div
                             class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-gray-400/50 rounded-tl"
-                            onmousedown={(e) => handleFrameResizeStart(e, frame)}
-                            ontouchstart={(e) => handleFrameResizeStart(e, frame)}
+                            onmousedown={(e) =>
+                                handleFrameResizeStart(e, frame)}
+                            ontouchstart={(e) =>
+                                handleFrameResizeStart(e, frame)}
                         ></div>
                     </div>
                 </foreignObject>
@@ -416,7 +453,7 @@
 
             <!-- Paths -->
             {#each $paths as path (path.id)}
-                <path 
+                <path
                     d={pointsToPath(path.points)}
                     stroke={path.color}
                     stroke-width={path.width}
@@ -428,20 +465,20 @@
 
             <!-- Cards (ForeignObject) -->
             {#each $cards as card (card.id)}
-                <foreignObject 
-                    x={card.x} 
-                    y={card.y} 
-                    width={card.width} 
+                <foreignObject
+                    x={card.x}
+                    y={card.y}
+                    width={card.width}
                     height={card.height}
                     class="overflow-visible pointer-events-none"
                 >
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div 
+                    <div
                         class="w-full h-full shadow-md rounded flex flex-col relative group pointer-events-auto transition-shadow hover:shadow-lg"
                         style="background-color: {card.color};"
                     >
                         <!-- Drag Handle -->
-                        <div 
+                        <div
                             class="h-6 w-full cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-t flex items-center justify-end px-1"
                             onmousedown={(e) => handleCardDragStart(e, card)}
                             ontouchstart={(e) => handleCardDragStart(e, card)}
@@ -449,20 +486,28 @@
                             <!-- Color Picker (Mini) -->
                             <div class="flex gap-1 mr-auto">
                                 {#each CARD_COLORS.slice(0, 4) as color}
-                                    <button 
+                                    <button
                                         class="w-3 h-3 rounded-full border border-black/10"
                                         style="background-color: {color.value}"
-                                        onclick={(e) => { e.stopPropagation(); actions.updateCard(card.id, { color: color.value }); }}
+                                        onclick={(e) => {
+                                            e.stopPropagation();
+                                            actions.updateCard(card.id, {
+                                                color: color.value,
+                                            });
+                                        }}
                                         onmousedown={(e) => e.stopPropagation()}
                                         aria-label="Set color {color.name}"
                                     ></button>
                                 {/each}
                             </div>
 
-                            <button 
+                            <button
                                 aria-label="Delete card"
                                 class="text-black/50 hover:text-red-600 font-bold px-1"
-                                onclick={(e) => { e.stopPropagation(); actions.deleteCard(card.id); }}
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    actions.deleteCard(card.id);
+                                }}
                                 onmousedown={(e) => e.stopPropagation()}
                             >
                                 ×
@@ -473,11 +518,16 @@
                             class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
                             value={card.text}
                             oninput={(e) => {
-                                actions.updateCard(card.id, { text: e.currentTarget.value });
+                                actions.updateCard(card.id, {
+                                    text: e.currentTarget.value,
+                                });
                                 autoResizeTextarea(e);
-                                updateCardHeight(card.id, e.currentTarget.scrollHeight);
+                                updateCardHeight(
+                                    card.id,
+                                    e.currentTarget.scrollHeight,
+                                );
                             }}
-                            onmousedown={(e) => e.stopPropagation()} 
+                            onmousedown={(e) => e.stopPropagation()}
                             ontouchstart={(e) => e.stopPropagation()}
                             placeholder="Type here..."
                         ></textarea>

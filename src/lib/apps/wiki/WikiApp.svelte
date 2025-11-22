@@ -1,25 +1,25 @@
 <script lang="ts">
-    import { useWikiYDoc } from './useWikiYDoc';
-    import WikiEditor from './WikiEditor.svelte';
-    import { onMount, onDestroy } from 'svelte';
-    import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
-    import { loadConfig } from '$lib/config';
-    import * as Y from 'yjs';
+    import { useWikiYDoc } from "./useWikiYDoc";
+    import WikiEditor from "./WikiEditor.svelte";
+    import { onMount, onDestroy } from "svelte";
+    import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
+    import { loadConfig } from "$lib/config";
+    import * as Y from "yjs";
 
-    import { untrack } from 'svelte';
+    import { untrack } from "svelte";
 
-    let { 
-        documentId, 
-        user, 
-        mode = 'local',
-        title = $bindable(''),
-        searchQuery = $bindable(''),
+    let {
+        documentId,
+        user,
+        mode = "local",
+        title = $bindable(""),
+        searchQuery = $bindable(""),
         showSidebar = $bindable(true),
-        awareness = $bindable(null)
+        awareness = $bindable(null),
     } = $props<{
         documentId: string;
         user: { name: string; color: string };
-        mode?: 'local' | 'nostr';
+        mode?: "local" | "nostr" | "group";
         title?: string;
         searchQuery?: string;
         showSidebar?: boolean;
@@ -27,17 +27,19 @@
     }>();
 
     let wikiHook: ReturnType<typeof useWikiYDoc> | null = $state(null);
-    let pages = $state<{id: string, title: string}[]>([]);
+    let pages = $state<{ id: string; title: string }[]>([]);
     let activePageId: string | null = $state(null);
     let activeFragment: Y.XmlFragment | null = $state(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let ydoc: Y.Doc | null = $state(null);
-    let saveStatus = $state<'saved' | 'saving' | 'error'>('saved');
+    let saveStatus = $state<"saved" | "saving" | "error">("saved");
 
     // Derived filtered pages
     let filteredPages = $derived(
-        pages.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
+        pages.filter((p) =>
+            p.title.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
     );
 
     export function createPage(title: string) {
@@ -48,7 +50,7 @@
 
     onMount(() => {
         console.log("[WikiApp] onMount started, mode:", mode);
-        
+
         let cleanupFn: (() => void) | undefined;
 
         const init = async () => {
@@ -56,7 +58,7 @@
             let signAndPublish: any;
             let relays: string[] | undefined;
 
-            if (mode === 'nostr') {
+            if (mode === "nostr") {
                 try {
                     console.log("[WikiApp] Getting pubkey...");
                     pubkey = await getNip07Pubkey();
@@ -64,34 +66,50 @@
                     const config = await loadConfig();
                     relays = config.docRelays;
                     signAndPublish = async (evt: any) => {
-                        console.log("[WikiApp] signAndPublish called for kind:", evt.kind);
-                        saveStatus = 'saving';
+                        console.log(
+                            "[WikiApp] signAndPublish called for kind:",
+                            evt.kind,
+                        );
+                        saveStatus = "saving";
                         try {
                             const res = await signAndPublishNip07(evt, relays);
-                            saveStatus = 'saved';
+                            saveStatus = "saved";
                             return res;
                         } catch (e) {
                             console.error("Failed to publish", e);
-                            saveStatus = 'error';
+                            saveStatus = "error";
                             return undefined;
                         }
                     };
                 } catch (e) {
                     console.error("Nostr init failed", e);
-                    error = "Nostr-Verbindung fehlgeschlagen. Bitte stelle sicher, dass du eine Nostr-Extension (z.B. Alby) installiert hast.";
+                    error =
+                        "Nostr-Verbindung fehlgeschlagen. Bitte stelle sicher, dass du eine Nostr-Extension (z.B. Alby) installiert hast.";
                     loading = false;
                     return;
                 }
             }
 
-            console.log("[WikiApp] Initializing useWikiYDoc with:", { documentId, mode, pubkey, hasSigner: !!signAndPublish });
-            wikiHook = useWikiYDoc(documentId, mode, user, pubkey, signAndPublish, relays);
+            console.log("[WikiApp] Initializing useWikiYDoc with:", {
+                documentId,
+                mode,
+                pubkey,
+                hasSigner: !!signAndPublish,
+            });
+            wikiHook = useWikiYDoc(
+                documentId,
+                mode,
+                user,
+                pubkey,
+                signAndPublish,
+                relays,
+            );
             ydoc = wikiHook.ydoc;
             awareness = wikiHook.awareness;
-            
+
             // Subscribe to stores
-            const unsubPages = wikiHook.pages.subscribe(p => pages = p);
-            const unsubActive = wikiHook.activePageId.subscribe(id => {
+            const unsubPages = wikiHook.pages.subscribe((p) => (pages = p));
+            const unsubActive = wikiHook.activePageId.subscribe((id) => {
                 activePageId = id;
                 if (id && wikiHook) {
                     activeFragment = wikiHook.getPageFragment(id);
@@ -112,13 +130,17 @@
             };
 
             metaMap.observe(handleMetaUpdate);
-            
+
             // Initial sync
             const storedTitle = metaMap.get("title") as string;
             untrack(() => {
                 if (storedTitle !== undefined && storedTitle !== title) {
                     title = storedTitle;
-                } else if (storedTitle === undefined && title && title !== documentId) {
+                } else if (
+                    storedTitle === undefined &&
+                    title &&
+                    title !== documentId
+                ) {
                     metaMap.set("title", title);
                 }
             });
@@ -145,7 +167,7 @@
         if (!ydoc) return;
         const metaMap = ydoc.getMap("metadata");
         const storedTitle = metaMap.get("title") as string;
-        
+
         if (title && title !== storedTitle) {
             metaMap.set("title", title);
         }
@@ -160,11 +182,12 @@
                 name: user.name,
                 color: user.color,
             };
-            
-            if (!currentState || 
-                currentState.user?.name !== newUser.name || 
-                currentState.user?.color !== newUser.color) {
-                
+
+            if (
+                !currentState ||
+                currentState.user?.name !== newUser.name ||
+                currentState.user?.color !== newUser.color
+            ) {
                 awareness.setLocalStateField("user", newUser);
             }
         }
@@ -176,11 +199,11 @@
 
     function handleDeletePage(id: string, e: Event) {
         e.stopPropagation();
-        if (confirm('Are you sure you want to delete this page?')) {
+        if (confirm("Are you sure you want to delete this page?")) {
             wikiHook?.deletePage(id);
         }
     }
-    
+
     function handleTitleChange(e: Event) {
         const target = e.target as HTMLInputElement;
         if (activePageId && wikiHook) {
@@ -189,7 +212,9 @@
     }
 
     function navigateToPage(title: string) {
-        const page = pages.find(p => p.title.toLowerCase() === title.toLowerCase());
+        const page = pages.find(
+            (p) => p.title.toLowerCase() === title.toLowerCase(),
+        );
         if (page) {
             selectPage(page.id);
         } else {
@@ -204,30 +229,35 @@
 
 <div class="wiki-container">
     {#if showSidebar}
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h3>Seiten ({filteredPages.length})</h3>
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3>Seiten ({filteredPages.length})</h3>
+            </div>
+
+            <div class="page-list">
+                {#each filteredPages as page}
+                    <div
+                        class="page-item"
+                        class:active={page.id === activePageId}
+                        role="button"
+                        tabindex="0"
+                        onclick={() => selectPage(page.id)}
+                        onkeydown={(e) =>
+                            e.key === "Enter" && selectPage(page.id)}
+                    >
+                        <span class="page-title">{page.title}</span>
+                        <button
+                            class="delete-btn"
+                            onclick={(e) => handleDeletePage(page.id, e)}
+                            >×</button
+                        >
+                    </div>
+                {/each}
+                {#if filteredPages.length === 0}
+                    <div class="no-results">Keine Seiten gefunden.</div>
+                {/if}
+            </div>
         </div>
-        
-        <div class="page-list">
-            {#each filteredPages as page}
-                <div 
-                    class="page-item" 
-                    class:active={page.id === activePageId}
-                    role="button"
-                    tabindex="0"
-                    onclick={() => selectPage(page.id)}
-                    onkeydown={(e) => e.key === 'Enter' && selectPage(page.id)}
-                >
-                    <span class="page-title">{page.title}</span>
-                    <button class="delete-btn" onclick={(e) => handleDeletePage(page.id, e)}>×</button>
-                </div>
-            {/each}
-            {#if filteredPages.length === 0}
-                <div class="no-results">Keine Seiten gefunden.</div>
-            {/if}
-        </div>
-    </div>
     {/if}
 
     <div class="main-content">
@@ -235,26 +265,36 @@
             <div class="error-state">
                 <h2>Verbindungsfehler</h2>
                 <p>{error}</p>
-                <button onclick={() => window.location.reload()}>Neu laden</button>
-                <p class="hint">Oder wechsle in den <a href="?mode=local">lokalen Modus</a>.</p>
+                <button onclick={() => window.location.reload()}
+                    >Neu laden</button
+                >
+                <p class="hint">
+                    Oder wechsle in den <a href="?mode=local">lokalen Modus</a>.
+                </p>
             </div>
         {:else if loading}
             <div class="loading">Loading Wiki...</div>
         {:else if activePageId && activeFragment && wikiHook}
             <div class="page-header">
                 <div class="flex justify-between items-center">
-                    <input 
-                        type="text" 
-                        class="title-input" 
-                        value={pages.find(p => p.id === activePageId)?.title} 
+                    <input
+                        type="text"
+                        class="title-input"
+                        value={pages.find((p) => p.id === activePageId)?.title}
                         oninput={handleTitleChange}
                     />
-                    {#if mode === 'nostr'}
-                        <div class="text-xs px-2 py-1 rounded" class:bg-green-100={saveStatus === 'saved'} class:bg-yellow-100={saveStatus === 'saving'} class:bg-red-100={saveStatus === 'error'}>
-                            {#if saveStatus === 'saved'}
+                    {#if mode === "nostr"}
+                        <div
+                            class="text-xs px-2 py-1 rounded"
+                            class:bg-green-100={saveStatus === "saved"}
+                            class:bg-yellow-100={saveStatus === "saving"}
+                            class:bg-red-100={saveStatus === "error"}
+                        >
+                            {#if saveStatus === "saved"}
                                 <span class="text-green-700">Gespeichert</span>
-                            {:else if saveStatus === 'saving'}
-                                <span class="text-yellow-700">Speichere...</span>
+                            {:else if saveStatus === "saving"}
+                                <span class="text-yellow-700">Speichere...</span
+                                >
                             {:else}
                                 <span class="text-red-700">Fehler</span>
                             {/if}
@@ -263,10 +303,10 @@
                 </div>
             </div>
             <div class="editor-wrapper">
-                <WikiEditor 
-                    fragment={activeFragment} 
-                    awareness={wikiHook.awareness} 
-                    user={user}
+                <WikiEditor
+                    fragment={activeFragment}
+                    awareness={wikiHook.awareness}
+                    {user}
                     onNavigate={navigateToPage}
                 />
             </div>
@@ -394,7 +434,7 @@
         height: 100%;
         color: #6b7280;
     }
-    
+
     .loading {
         display: flex;
         align-items: center;

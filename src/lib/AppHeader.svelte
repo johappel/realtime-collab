@@ -26,6 +26,13 @@
 
     let showSettings = $state(false);
     let settingsButton: HTMLButtonElement | null = $state(null);
+
+    function handleGroupMode() {
+        const code = window.prompt('Bitte Gruppen-Code eingeben:', appState.groupCode || '');
+        if (code) {
+            appState.setGroupCode(code);
+        }
+    }
 </script>
 
 <header class="header">
@@ -75,6 +82,9 @@
             </label>
             <label class:active={appState.mode === "nostr"}>
                 <input type="radio" name="mode" value="nostr" checked={appState.mode === 'nostr'} onchange={() => appState.setMode('nostr')} /> Nostr
+            </label>
+            <label class:active={appState.mode === "group"}>
+                <input type="radio" name="mode" value="group" checked={appState.mode === 'group'} onchange={handleGroupMode} /> Group
             </label>
         </div>
     </div>

@@ -1,8 +1,8 @@
 # Projekt-Fortschritt - Realtime Collaborative Editor
 
-## Letzte Aktualisierung: 20.11.2025
+## Letzte Aktualisierung: 22.11.2025
 
-### Status: MVP 3 abgeschlossen ✅ + UI/UX Verbesserungen
+### Status: Gruppen-Code Feature in Entwicklung 🚧
 
 ## Abgeschlossene Meilensteine
 
@@ -84,6 +84,20 @@
 - ✅ `src/lib/SettingsDialog.svelte` - Einstellungen & Export
 - ✅ `src/routes/editor/+page.svelte` - Document-Auswahl
 - ✅ `src/routes/editor/[documentId]/+page.svelte` - Editor-Seite mit neuem Layout
+
+### ✅ Gruppen-Code Authentifizierung (22.11.2025)
+- **Dual-Mode Login**: 
+  - Standard-Modus: NIP-07 Browser Extension (Alby, nos2x) für persönliche Identität
+  - Gruppen-Modus: 8-stelliger Code für vereinfachtes Lerngruppenmanagement
+- **Deterministischer Key-Derivation**: 
+  - `generateKeyFromCode()`: SHA-256 Hash des Codes → Nostr Private Key
+  - Alle Gruppenmitglieder mit demselben Code erhalten denselben Key
+- **Lokale Identität**:
+  - `getOrSetLocalIdentity()`: Nickname-Persistenz im LocalStorage
+  - Awareness-basierte Unterscheidung der Nutzer im Editor
+- **URL-Parameter Support**: 
+  - Auto-Login via `?code=KURS-A&name=Max`
+  - Perfekt für QR-Codes und Director-Agent Integration
 
 ## Nächste Schritte (Optional - Phase 4)
 
