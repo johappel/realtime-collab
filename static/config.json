@@ -7,5 +7,6 @@
     "wss://relay.primal.net",
     "wss://relay-rpi.edufeed.org"
   ],
-  "blossomServer": "http://localhost:7010"
+  "blossomServer": "http://localhost:7010",
+  "blossomRequireAuth": false
 }

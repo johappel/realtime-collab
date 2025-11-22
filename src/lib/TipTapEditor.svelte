@@ -94,6 +94,13 @@
             const { signWithPrivateKey } = await import("$lib/groupAuth");
             const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
 
+            // Wait for groupPrivateKey to be initialized (max 5 seconds)
+            const startTime = Date.now();
+            while (!appState.groupPrivateKey && Date.now() - startTime < 5000) {
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              if (cancelled) return;
+            }
+
             if (!appState.groupPrivateKey) {
               throw new Error(
                 "Kein Gruppen-Key gefunden. Bitte melde dich erneut an.",

@@ -15,6 +15,8 @@ class AppState {
         // Load initial state from localStorage if available
         if (typeof localStorage !== 'undefined') {
             const storedMode = localStorage.getItem('app_mode');
+            console.log('[AppState Constructor] Stored mode:', storedMode);
+
             if (storedMode === 'nostr' || storedMode === 'local' || storedMode === 'group') {
                 this.mode = storedMode as 'local' | 'nostr' | 'group';
             }
@@ -22,6 +24,7 @@ class AppState {
             // Restore group code if in group mode
             if (this.mode === 'group') {
                 this.groupCode = localStorage.getItem('app_group_code');
+                console.log('[AppState Constructor] Restored groupCode:', this.groupCode);
             }
         }
     }
@@ -42,9 +45,12 @@ class AppState {
         const config = await loadConfig();
         this.relays = config.docRelays;
 
+        console.log('[AppState init] Mode:', this.mode);
+
         if (this.mode === 'nostr') {
             await this.initNostr();
         } else if (this.mode === 'group') {
+            console.log('[AppState init] Calling initGroup...');
             await this.initGroup();
         }
     }
@@ -69,6 +75,8 @@ class AppState {
 
     async initGroup() {
         try {
+            console.log('[initGroup] Starting, groupCode:', this.groupCode);
+
             if (!this.groupCode) {
                 console.warn("Group code not set");
                 return;
@@ -76,15 +84,18 @@ class AppState {
 
             // Generate private key from code
             this.groupPrivateKey = await generateKeyFromCode(this.groupCode);
+            console.log('[initGroup] Generated groupPrivateKey:', this.groupPrivateKey ? 'YES' : 'NO');
 
             // Get public key
             const pubkey = getPubkeyFromPrivateKey(this.groupPrivateKey);
             this.user.pubkey = pubkey;
             this.user.color = getRandomColor(pubkey);
+            console.log('[initGroup] Generated pubkey:', pubkey);
 
             // Get nickname from localStorage or use default
             const nickname = getOrSetLocalIdentity();
             this.user.name = nickname || 'GroupMember';
+            console.log('[initGroup] Set nickname:', this.user.name);
         } catch (e) {
             console.error("Failed to init Group mode:", e);
         }

@@ -132,7 +132,13 @@
       const ivHex = arrayBufferToHex(iv.buffer as ArrayBuffer);
 
       // 2. Upload
-      const result = await uploadFile(encryptedBlob, key, blossomServerUrl);
+      const config = await loadConfig();
+      const result = await uploadFile(
+        encryptedBlob,
+        key,
+        blossomServerUrl,
+        config.blossomRequireAuth ?? false,
+      );
 
       // 3. Insert Node
       editor

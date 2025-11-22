@@ -52,9 +52,11 @@ export const EncryptedImage = Image.extend({
             const loadAndDecrypt = async () => {
                 try {
                     // 1. Fetch the encrypted blob
+                    console.log('Fetching encrypted image from:', src);
                     const response = await fetch(src);
-                    if (!response.ok) throw new Error('Failed to fetch image');
+                    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
                     const encryptedBlob = await response.blob();
+                    console.log('Fetched blob:', encryptedBlob.size, encryptedBlob.type);
 
                     // 2. Get the group key
                     // We assume we are in group mode if we are seeing this.
