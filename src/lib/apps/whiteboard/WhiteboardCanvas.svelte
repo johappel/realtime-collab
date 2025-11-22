@@ -95,22 +95,66 @@
     let isShiftPressed = $state(false);
     
     // Zoom State
-    let zoomLevel = $state(1); // 1 = 100%, 0.5 = 50%, 2 = 200%
+    let zoomLevel = $state(1); // 1 = 100% (1:1 Pixel mapping)
     const MIN_ZOOM = 0.1;
-    const MAX_ZOOM = 5;
+    const MAX_ZOOM = 20;
     const ZOOM_STEP = 0.1;
     
-    // Canvas dimensions for viewBox (base size without zoom)
-    const BASE_CANVAS_WIDTH = 4000;
-    const BASE_CANVAS_HEIGHT = 3000;
+    // Container dimensions for dynamic viewBox
+    let containerWidth = $state(1920);
+    let containerHeight = $state(1080);
+    
+    // Persistence Key
+    const VIEW_STORAGE_KEY = `whiteboard_view_${documentId}`;
+    
+    let initialFitDone = false;
+
+    $effect(() => {
+        const hasData = $cards.length > 0 || $frames.length > 0 || $images.length > 0 || $paths.length > 0;
+        if (hasData && !initialFitDone && svgElement) {
+            // Wait for DOM to update with new elements
+            setTimeout(() => {
+                fitToContent();
+                initialFitDone = true;
+            }, 50);
+        }
+    });
+
+    function saveViewState() {
+        try {
+            const state = {
+                zoom: zoomLevel,
+                pan: panOffset
+            };
+            localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+            console.warn("Failed to save view state", e);
+        }
+    }
+
+    function loadViewState() {
+        try {
+            const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+            if (stored) {
+                const state = JSON.parse(stored);
+                if (state.zoom && !isNaN(state.zoom)) zoomLevel = state.zoom;
+                if (state.pan && typeof state.pan.x === 'number' && typeof state.pan.y === 'number') {
+                    panOffset = state.pan;
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to load view state", e);
+        }
+    }
     
     function updateSelectionVersion() {
         selectionVersion++;
     }
     
     // ViewBox für Panning und Zoom
-    // Zoom: Größerer viewBox = weiter rausgezoomt, kleinerer viewBox = reingezoomt
-    let viewBox = $derived(`${-panOffset.x} ${-panOffset.y} ${BASE_CANVAS_WIDTH / zoomLevel} ${BASE_CANVAS_HEIGHT / zoomLevel}`);
+    // Wir nutzen die tatsächliche Container-Größe, damit 100% Zoom = 1:1 Pixel-Mapping ist.
+    // Das verhindert auch Verzerrungen/Letterboxing, da die Aspect Ratio stimmt.
+    let viewBox = $derived(`${-panOffset.x} ${-panOffset.y} ${containerWidth / zoomLevel} ${containerHeight / zoomLevel}`);
 
     const MAX_CARD_HEIGHT = 300;
 
@@ -181,20 +225,177 @@
     }
     
     export function zoomIn() {
-        zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+        const oldZoom = zoomLevel;
+        const newZoom = Math.min(MAX_ZOOM, oldZoom * 1.2);
+        
+        if (newZoom === oldZoom) return;
+        
+        // Zoom towards center of screen
+        const centerX = containerWidth / 2;
+        const centerY = containerHeight / 2;
+        
+        const scaleChange = (1/newZoom - 1/oldZoom);
+        const newPanX = panOffset.x + centerX * scaleChange;
+        const newPanY = panOffset.y + centerY * scaleChange;
+        
+        zoomLevel = newZoom;
+        panOffset = { x: newPanX, y: newPanY };
+        saveViewState();
     }
     
     export function zoomOut() {
-        zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+        const oldZoom = zoomLevel;
+        const newZoom = Math.max(MIN_ZOOM, oldZoom / 1.2);
+        
+        if (newZoom === oldZoom) return;
+        
+        // Zoom towards center of screen
+        const centerX = containerWidth / 2;
+        const centerY = containerHeight / 2;
+        
+        const scaleChange = (1/newZoom - 1/oldZoom);
+        const newPanX = panOffset.x + centerX * scaleChange;
+        const newPanY = panOffset.y + centerY * scaleChange;
+        
+        zoomLevel = newZoom;
+        panOffset = { x: newPanX, y: newPanY };
+        saveViewState();
     }
     
     export function resetZoom() {
-        zoomLevel = 1;
+        zoomLevel = 1.5; // 150% für bessere Lesbarkeit
         panOffset = { x: 0, y: 0 };
+        saveViewState();
     }
     
     export function getZoomLevel() {
         return Math.round(zoomLevel * 100);
+    }
+    
+    export function fitToContent() {
+        if (!svgElement) {
+            resetZoom();
+            return;
+        }
+        
+        // Berechne Bounding Box aller Elemente
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        let hasElements = false;
+        
+        // Paths (points are [x, y] arrays)
+        $paths.forEach(path => {
+            if (path.points && path.points.length > 0) {
+                path.points.forEach(point => {
+                    const [x, y] = point;
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                    hasElements = true;
+                });
+            }
+        });
+        
+        // Cards
+        $cards.forEach(card => {
+            minX = Math.min(minX, card.x);
+            minY = Math.min(minY, card.y);
+            maxX = Math.max(maxX, card.x + card.width);
+            maxY = Math.max(maxY, card.y + card.height);
+            hasElements = true;
+        });
+        
+        // Frames
+        $frames.forEach(frame => {
+            minX = Math.min(minX, frame.x);
+            minY = Math.min(minY, frame.y);
+            maxX = Math.max(maxX, frame.x + frame.width);
+            maxY = Math.max(maxY, frame.y + frame.height);
+            hasElements = true;
+        });
+        
+        // Images
+        $images.forEach(image => {
+            minX = Math.min(minX, image.x);
+            minY = Math.min(minY, image.y);
+            maxX = Math.max(maxX, image.x + image.width);
+            maxY = Math.max(maxY, image.y + image.height);
+            hasElements = true;
+        });
+        
+        if (!hasElements || minX === Infinity) {
+            resetZoom();
+            return;
+        }
+        
+        // Berechne Content-Größe
+        const contentWidth = maxX - minX;
+        const contentHeight = maxY - minY;
+        
+        if (contentWidth <= 0 || contentHeight <= 0) {
+            resetZoom();
+            return;
+        }
+        
+        // Füge minimales Padding hinzu (10% für etwas Luft)
+        const padding = 0.1;
+        const paddedWidth = contentWidth * (1 + 2 * padding);
+        const paddedHeight = contentHeight * (1 + 2 * padding);
+        
+        // Hole Viewport-Größe
+        const rect = svgElement.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            return;
+        }
+
+        const viewportAspect = rect.width / rect.height;
+        const contentAspect = paddedWidth / paddedHeight;
+        
+        // Berechne ViewBox-Größe die dem Viewport-Aspect entspricht
+        let targetViewBoxWidth, targetViewBoxHeight;
+        
+        if (viewportAspect > contentAspect) {
+            // Viewport breiter als Content - expandiere Width
+            targetViewBoxHeight = paddedHeight;
+            targetViewBoxWidth = paddedHeight * viewportAspect;
+        } else {
+            // Viewport höher als Content - expandiere Height
+            targetViewBoxWidth = paddedWidth;
+            targetViewBoxHeight = paddedWidth / viewportAspect;
+        }
+        
+        // Berechne Zoom: wie oft passt targetViewBox in Container
+        const zoomX = containerWidth / targetViewBoxWidth;
+        const zoomY = containerHeight / targetViewBoxHeight;
+        let optimalZoom = Math.min(zoomX, zoomY);
+        
+        // Begrenze nur nach unten (Min 10%), nach oben kein Limit
+        optimalZoom = Math.max(MIN_ZOOM, optimalZoom);
+        
+        if (isNaN(optimalZoom) || !isFinite(optimalZoom)) {
+            resetZoom();
+            return;
+        }
+        
+        zoomLevel = optimalZoom;
+        
+        // Berechne ViewBox und zentriere Content
+        const viewBoxWidth = containerWidth / zoomLevel;
+        const viewBoxHeight = containerHeight / zoomLevel;
+        
+        const contentCenterX = (minX + maxX) / 2;
+        const contentCenterY = (minY + maxY) / 2;
+        
+        // ViewBox startet bei (-panOffset.x, -panOffset.y)
+        // Mitte der ViewBox: -panOffset.x + viewBoxWidth/2
+        // Soll sein: contentCenterX
+        // => panOffset.x = viewBoxWidth/2 - contentCenterX
+        panOffset = {
+            x: viewBoxWidth / 2 - contentCenterX,
+            y: viewBoxHeight / 2 - contentCenterY
+        };
+        
+        saveViewState();
     }
 
     onMount(async () => {
@@ -219,8 +420,30 @@
             // Only zoom if Ctrl is pressed or if we're in hand/select tool
             if (e.ctrlKey || activeTool === 'hand' || activeTool === 'select') {
                 e.preventDefault();
-                const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
+                
+                const rect = svgElement.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                const oldZoom = zoomLevel;
+                // Multiplicative zoom for better feel
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                let newZoom = oldZoom * zoomFactor;
+                
+                // Clamp
+                newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+                
+                if (newZoom === oldZoom) return;
+                
+                // Adjust pan to zoom towards mouse pointer
+                // Formula: newPan = oldPan + mousePos * (1/newZoom - 1/oldZoom)
+                const scaleChange = (1/newZoom - 1/oldZoom);
+                const newPanX = panOffset.x + mouseX * scaleChange;
+                const newPanY = panOffset.y + mouseY * scaleChange;
+                
+                zoomLevel = newZoom;
+                panOffset = { x: newPanX, y: newPanY };
+                saveViewState();
             }
         };
         
@@ -234,6 +457,9 @@
             }
         };
         setTimeout(addWheelListener, 0);
+        
+        // Load persisted view state
+        // loadViewState(); // Disabled in favor of auto-fit on load
         
         let pubkey = "";
         let relays: string[] = [];
@@ -403,8 +629,8 @@
         }
 
         // Transform from screen coordinates to SVG coordinates (accounting for pan offset and zoom)
-        const viewBoxWidth = BASE_CANVAS_WIDTH / zoomLevel;
-        const viewBoxHeight = BASE_CANVAS_HEIGHT / zoomLevel;
+        const viewBoxWidth = containerWidth / zoomLevel;
+        const viewBoxHeight = containerHeight / zoomLevel;
         const relX = (clientX - rect.left) / rect.width * viewBoxWidth;
         const relY = (clientY - rect.top) / rect.height * viewBoxHeight;
 
@@ -610,7 +836,13 @@
         }
         if (isPanning) {
             isPanning = false;
+            saveViewState(); // Save state after panning
         }
+        if (draggingCardId || draggingFrameId || draggingImageId || resizingCardId || resizingFrameId || resizingImageId) {
+            // Save state after moving elements (optional, but good if we want to save zoom/pan changes that might have happened)
+            // Actually, moving elements doesn't change view state, but let's be safe.
+        }
+        
         isDrawing = false;
         currentPathId = null;
         draggingCardId = null;
@@ -872,12 +1104,14 @@
         ontouchstart={handleStart}
         ontouchmove={handleMove}
         ontouchend={handleEnd}
+        bind:clientWidth={containerWidth}
+        bind:clientHeight={containerHeight}
     >
         <svg 
             bind:this={svgElement} 
             class="w-full h-full block"
             viewBox={viewBox}
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="none"
         >
             <!-- Selection Box -->
             {#if isSelecting}
