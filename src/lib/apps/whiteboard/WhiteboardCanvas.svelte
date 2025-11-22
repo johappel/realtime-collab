@@ -13,10 +13,17 @@
     import { theme } from "$lib/stores/theme.svelte";
     import * as Y from "yjs";
     import EncryptedImage from "$lib/components/EncryptedImage.svelte";
+    import MarkdownText from "$lib/components/MarkdownText.svelte";
     import { resizeImage } from "$lib/imageUtils";
     import { encryptFile, arrayBufferToHex } from "$lib/cryptoUtils";
     import { uploadFile } from "$lib/blossomClient";
     import { appState } from "$lib/stores/appState.svelte";
+
+    // Action to auto-focus an element
+    function focus(node: HTMLElement) {
+        node.focus();
+        return {};
+    }
 
     let {
         documentId,
@@ -71,6 +78,7 @@
     let attachedImageIds: Set<string> = new Set();
     let dragOffset = { x: 0, y: 0 };
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
+    let editingCardId: string | null = $state(null);
 
     const MAX_CARD_HEIGHT = 300;
 
@@ -710,21 +718,47 @@
                                     ×
                                 </button>
                             </div>
-                            <textarea
-                                class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
-                                value={element.text}
-                                oninput={(e) => {
-                                    actions.updateCard(element.id, {
-                                        text: e.currentTarget.value,
-                                    });
-                                    // autoResizeTextarea(e); // Removed auto-resize in favor of manual resize
-                                }}
-                                onmousedown={(e) => {
-                                    e.stopPropagation();
-                                    bringToFront(element);
-                                }}
-                                aria-label="Card text"
-                            ></textarea>
+                            
+                            {#if editingCardId === element.id}
+                                <textarea
+                                    class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
+                                    value={element.text}
+                                    oninput={(e) => {
+                                        actions.updateCard(element.id, {
+                                            text: e.currentTarget.value,
+                                        });
+                                    }}
+                                    onblur={() => {
+                                        editingCardId = null;
+                                    }}
+                                    onmousedown={(e) => {
+                                        e.stopPropagation();
+                                    }}
+                                    use:focus
+                                    aria-label="Card text"
+                                ></textarea>
+                            {:else}
+                                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                                <div
+                                    class="w-full h-full overflow-auto text-gray-900 font-medium font-sans p-2 pt-0 cursor-text"
+                                    onclick={(e) => {
+                                        e.stopPropagation();
+                                        editingCardId = element.id;
+                                        bringToFront(element);
+                                    }}
+                                    onmousedown={(e) => {
+                                        e.stopPropagation();
+                                    }}
+                                    aria-label="Card text (click to edit)"
+                                >
+                                    {#if element.text.trim()}
+                                        <MarkdownText text={element.text} darkText={true} />
+                                    {:else}
+                                        <span class="text-gray-400 italic">Click to add text...</span>
+                                    {/if}
+                                </div>
+                            {/if}
 
                             <!-- Resize Handle for Card -->
                             <!-- svelte-ignore a11y_no_static_element_interactions -->

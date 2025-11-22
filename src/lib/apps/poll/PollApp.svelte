@@ -10,7 +10,7 @@
     import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
     import { theme } from "$lib/stores/theme.svelte";
     import * as Y from "yjs";
-    import MarkdownText from "./MarkdownText.svelte";
+    import MarkdownText from "$lib/components/MarkdownText.svelte";
 
     let {
         documentId,
