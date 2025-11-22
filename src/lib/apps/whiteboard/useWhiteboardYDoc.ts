@@ -53,7 +53,7 @@ export interface UseWhiteboardYDocResult {
 
 export function useWhiteboardYDoc(
     documentId: string,
-    mode: 'local' | 'nostr',
+    mode: 'local' | 'nostr' | 'group',
     user: { name: string; color: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
@@ -64,8 +64,11 @@ export function useWhiteboardYDoc(
     let awareness: any;
     let persistence: any;
 
-    if (mode === 'nostr' && myPubkey && signAndPublish) {
-        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays);
+    if ((mode === 'nostr' || mode === 'group') && myPubkey && signAndPublish) {
+        // In group mode, use user.name as identifier to ensure unique clientID per user
+        const userIdentifier = mode === 'group' ? user.name : undefined;
+        const isGroupMode = mode === 'group';
+        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;

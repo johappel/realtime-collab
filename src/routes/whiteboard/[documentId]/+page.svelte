@@ -20,6 +20,24 @@
     let currentWidth = $state(3);
     let cardColor = $state('#fff9c4');
 
+    onMount(async () => {
+        await appState.init();
+        
+        // Check for URL parameters for auto-login with group code
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupCode = urlParams.get("code");
+        const nickname = urlParams.get("name");
+
+        if (groupCode) {
+            // Auto-login with group code
+            await appState.setGroupCode(groupCode, nickname || undefined);
+            await appState.initGroup();
+
+            // Remove parameters from URL after processing
+            window.history.replaceState({}, "", window.location.pathname);
+        }
+    });
+
     const CARD_COLORS = [
         { name: 'Yellow', value: '#fff9c4' },
         { name: 'Post-It', value: '#fff176' },
@@ -29,10 +47,6 @@
         { name: 'Purple', value: '#e1bee7' },
         { name: 'Blue', value: '#bbdefb' }
     ];
-
-    onMount(() => {
-        appState.init();
-    });
 </script>
 
 {#snippet toolbar()}

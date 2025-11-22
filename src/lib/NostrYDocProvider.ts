@@ -162,8 +162,18 @@ export class NostrYDocProvider {
 
   private bindYDocUpdates() {
     this.ydoc.on('update', (update: Uint8Array, origin: unknown) => {
-      if (origin === 'remote') return;
+      console.log('[NostrYDocProvider] 📝 Yjs update event:', { 
+        origin, 
+        updateSize: update.length,
+        documentId: this.documentId 
+      });
+      
+      if (origin === 'remote') {
+        console.log('[NostrYDocProvider] ⏩ Skipping remote update');
+        return;
+      }
 
+      console.log('[NostrYDocProvider] 📤 Preparing to publish local update...');
       const base64Update = uint8ToBase64(update);
 
       const nostrEvent: EventTemplate = {
@@ -173,11 +183,11 @@ export class NostrYDocProvider {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      this.signAndPublish(nostrEvent).then(() => {
-        if (this.debug) console.log(`[NostrYDocProvider] Published update kind 9337`);
+      console.log('[NostrYDocProvider] 🔐 Calling signAndPublish...');
+      this.signAndPublish(nostrEvent).then((result) => {
+        console.log('[NostrYDocProvider] ✅ Published update kind 9337', result);
       }).catch((error) => {
-        // console.error('Failed to sign/publish Nostr Yjs event', error);
-        if (this.debug) console.warn('[NostrYDocProvider] Failed to publish update:', error);
+        console.error('[NostrYDocProvider] ❌ Failed to publish update:', error);
       });
     });
   }

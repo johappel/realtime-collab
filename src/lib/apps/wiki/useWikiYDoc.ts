@@ -24,7 +24,7 @@ export interface UseWikiYDocResult {
 
 export function useWikiYDoc(
     documentId: string,
-    mode: 'local' | 'nostr',
+    mode: 'local' | 'nostr' | 'group',
     user: { name: string; color: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
@@ -35,9 +35,12 @@ export function useWikiYDoc(
     let awareness: any;
     let persistence: any;
 
-    if (mode === 'nostr' && myPubkey && signAndPublish) {
-        console.log("[useWikiYDoc] Initializing Nostr mode");
-        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, true, relays);
+    if ((mode === 'nostr' || mode === 'group') && myPubkey && signAndPublish) {
+        console.log("[useWikiYDoc] Initializing Nostr/Group mode");
+        // In group mode, use user.name as identifier to ensure unique clientID per user
+        const userIdentifier = mode === 'group' ? user.name : undefined;
+        const isGroupMode = mode === 'group';
+        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, true, relays, userIdentifier, isGroupMode);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;

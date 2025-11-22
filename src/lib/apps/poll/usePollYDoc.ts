@@ -7,7 +7,7 @@ export interface PollOption {
     id: string;
     text: string;
     creatorId?: string; // If user created it
-    votes: string[]; // Array of userIds (or pubkeys)
+    votes: Array<{name: string, color: string}>; // Array of voter objects
 }
 
 export interface PollSettings {
@@ -27,15 +27,15 @@ export interface UsePollYDocResult {
     setQuestion: (q: string) => void;
     addOption: (text: string, creatorId?: string) => void;
     deleteOption: (id: string) => void;
-    vote: (optionId: string, userId: string) => void;
+    vote: (optionId: string, userName: string, userColor: string) => void;
     updateSettings: (s: Partial<PollSettings>) => void;
     resetVotes: () => void;
 }
 
 export function usePollYDoc(
     documentId: string,
-    mode: 'local' | 'nostr',
-    user: { name: string; color: string },
+    mode: 'local' | 'nostr' | 'group',
+    user: { name: string; color: string; pubkey?: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
     relays?: string[]
@@ -45,8 +45,11 @@ export function usePollYDoc(
     let awareness: any;
     let persistence: any;
 
-    if (mode === 'nostr' && myPubkey && signAndPublish) {
-        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays);
+    if ((mode === 'nostr' || mode === 'group') && myPubkey && signAndPublish) {
+        // In group mode, use user.name as identifier to ensure unique clientID per user
+        const userIdentifier = mode === 'group' ? user.name : undefined;
+        const isGroupMode = mode === 'group';
+        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;
@@ -77,12 +80,30 @@ export function usePollYDoc(
     };
 
     const syncOptions = () => {
-        const newOptions: PollOption[] = yOptions.map(yMap => ({
-            id: yMap.get('id'),
-            text: yMap.get('text'),
-            creatorId: yMap.get('creatorId'),
-            votes: yMap.get('votes') || []
-        }));
+        const newOptions: PollOption[] = yOptions.map(yMap => {
+            const votesData = yMap.get('votes');
+            let votes: Array<{name: string, color: string}> = [];
+            
+            if (!votesData || votesData === '') {
+                votes = [];
+            } else if (Array.isArray(votesData)) {
+                votes = votesData; // Backwards compat
+            } else if (typeof votesData === 'string') {
+                try {
+                    votes = JSON.parse(votesData);
+                } catch (e) {
+                    console.warn('[usePollYDoc] Failed to parse votes JSON:', votesData, e);
+                    votes = [];
+                }
+            }
+            
+            return {
+                id: yMap.get('id'),
+                text: yMap.get('text'),
+                creatorId: yMap.get('creatorId'),
+                votes
+            };
+        });
         options.set(newOptions);
     };
 
@@ -117,7 +138,7 @@ export function usePollYDoc(
             yMap.set('id', id);
             yMap.set('text', text);
             yMap.set('creatorId', creatorId);
-            yMap.set('votes', []);
+            yMap.set('votes', JSON.stringify([]));
             yOptions.push([yMap]);
         });
     };
@@ -134,17 +155,36 @@ export function usePollYDoc(
         });
     };
 
-    const vote = (optionId: string, userId: string) => {
+    const vote = (optionId: string, userName: string, userColor: string) => {
+        console.log('[usePollYDoc] Vote called:', { optionId, userName, userColor, mode });
         ydoc.transact(() => {
             const isMulti = ySettings.get('multiSelect');
+            console.log('[usePollYDoc] Transaction started, isMulti:', isMulti);
             
+            // Helper to parse votes from Yjs (handles legacy formats)
+            const parseVotes = (votesData: any): Array<{name: string, color: string}> => {
+                if (!votesData) return [];
+                if (Array.isArray(votesData)) return votesData; // Legacy format
+                if (typeof votesData === 'string') {
+                    if (votesData === '') return []; // Empty string
+                    try {
+                        return JSON.parse(votesData);
+                    } catch (e) {
+                        console.warn('[usePollYDoc] Failed to parse votes:', votesData, e);
+                        return [];
+                    }
+                }
+                return [];
+            };
+
             // If not multi-select, remove vote from other options first
             if (!isMulti) {
                 yOptions.forEach(map => {
                     if (map.get('id') !== optionId) {
-                        const votes = map.get('votes') as string[];
-                        if (votes.includes(userId)) {
-                            map.set('votes', votes.filter(v => v !== userId));
+                        const votes = parseVotes(map.get('votes'));
+                        const filtered = votes.filter(v => v.name !== userName);
+                        if (filtered.length !== votes.length) {
+                            map.set('votes', JSON.stringify(filtered));
                         }
                     }
                 });
@@ -154,15 +194,22 @@ export function usePollYDoc(
             for (let i = 0; i < yOptions.length; i++) {
                 const map = yOptions.get(i);
                 if (map.get('id') === optionId) {
-                    const votes = map.get('votes') as string[];
-                    if (votes.includes(userId)) {
-                        map.set('votes', votes.filter(v => v !== userId));
+                    const votes = parseVotes(map.get('votes'));
+                    console.log('[usePollYDoc] Current votes for option:', votes);
+                    const existingIndex = votes.findIndex(v => v.name === userName);
+                    if (existingIndex >= 0) {
+                        const newVotes = votes.filter(v => v.name !== userName);
+                        map.set('votes', JSON.stringify(newVotes));
+                        console.log('[usePollYDoc] Removed vote, new votes:', newVotes);
                     } else {
-                        map.set('votes', [...votes, userId]);
+                        const newVotes = [...votes, { name: userName, color: userColor }];
+                        map.set('votes', JSON.stringify(newVotes));
+                        console.log('[usePollYDoc] Added vote, new votes:', newVotes);
                     }
                     break;
                 }
             }
+            console.log('[usePollYDoc] Transaction complete');
         });
     };
 
@@ -177,7 +224,7 @@ export function usePollYDoc(
     const resetVotes = () => {
         ydoc.transact(() => {
             yOptions.forEach(map => {
-                map.set('votes', []);
+                map.set('votes', JSON.stringify([]));
             });
         });
     };

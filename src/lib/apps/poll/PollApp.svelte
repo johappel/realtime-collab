@@ -62,15 +62,39 @@
         let relays: string[] = [];
         let signAndPublish: any = null;
 
-        if (mode === "nostr") {
+        if (mode === "nostr" || mode === "group") {
             try {
                 const config = await loadConfig();
                 relays = config.docRelays;
-                pubkey = await getNip07Pubkey();
-                signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
-                myUserId = pubkey;
+
+                if (mode === "group") {
+                    // Group mode: use private key from appState
+                    const { appState } = await import("$lib/stores/appState.svelte");
+                    const { signWithPrivateKey } = await import("$lib/groupAuth");
+                    const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
+
+                    // CRITICAL: Wait for group initialization to complete
+                    console.log('[PollApp] Waiting for group initialization...');
+                    await appState.ensureInitialized();
+                    console.log('[PollApp] Group initialized, user:', appState.user.name);
+
+                    if (!appState.groupPrivateKey) {
+                        console.error("[PollApp] No group private key found after init");
+                        return;
+                    }
+
+                    pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
+                    signAndPublish = (evt: any) =>
+                        signWithPrivateKey(evt, appState.groupPrivateKey!, relays);
+                    myUserId = pubkey;
+                } else {
+                    // Nostr mode: use NIP-07
+                    pubkey = await getNip07Pubkey();
+                    signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
+                    myUserId = pubkey;
+                }
             } catch (e) {
-                console.error("Failed to init Nostr:", e);
+                console.error("Failed to init Nostr/Group:", e);
                 myUserId = "anon-" + Math.random().toString(36).substr(2, 9);
             }
         } else {
@@ -206,7 +230,7 @@
     <!-- Options List -->
     <div class="space-y-4">
         {#each $options as option (option.id)}
-            {@const isVoted = option.votes.includes(myUserId)}
+            {@const isVoted = option.votes.some(v => v.name === user.name)}
             {@const percentage = getVotePercentage(
                 option.votes.length,
                 totalVotes,
@@ -226,7 +250,7 @@
                 <!-- Content -->
                 <div class="relative p-4 flex items-center gap-4">
                     <button
-                        onclick={() => actions.vote(option.id, myUserId)}
+                        onclick={() => actions.vote(option.id, user.name, user.color)}
                         class="shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors
                             {isVoted
                             ? 'bg-blue-500 border-blue-500 text-white'
@@ -262,22 +286,16 @@
 
                         <!-- Voters List (if not anonymous) -->
                         {#if !$settings.anonymous && option.votes.length > 0}
-                            <div class="flex -space-x-2 overflow-hidden pt-1">
-                                {#each option.votes.slice(0, 8) as voterId}
+                            <div class="flex flex-wrap gap-1 pt-2">
+                                {#each option.votes as vote}
                                     <div
-                                        class="h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-900 bg-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 select-none"
-                                        title={voterId}
+                                        class="px-2 py-0.5 rounded-full text-xs font-medium text-white shadow-sm"
+                                        style="background-color: {vote.color}"
+                                        title={vote.name}
                                     >
-                                        {voterId.slice(0, 2).toUpperCase()}
+                                        {vote.name}
                                     </div>
                                 {/each}
-                                {#if option.votes.length > 8}
-                                    <div
-                                        class="h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-900 bg-gray-100 flex items-center justify-center text-xs text-gray-500"
-                                    >
-                                        +{option.votes.length - 8}
-                                    </div>
-                                {/if}
                             </div>
                         {/if}
                     </div>

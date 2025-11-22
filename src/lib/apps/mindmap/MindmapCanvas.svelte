@@ -85,14 +85,35 @@
         let relays: string[] = [];
         let signAndPublish: any = null;
 
-        if (mode === "nostr") {
+        if (mode === "nostr" || mode === "group") {
             try {
                 const config = await loadConfig();
                 relays = config.docRelays;
-                pubkey = await getNip07Pubkey();
-                signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
+
+                if (mode === "group") {
+                    // Group mode: use private key from appState
+                    const { appState } = await import("$lib/stores/appState.svelte");
+                    const { signWithPrivateKey } = await import("$lib/groupAuth");
+                    const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
+
+                    // CRITICAL: Wait for group initialization to complete
+                    await appState.ensureInitialized();
+
+                    if (!appState.groupPrivateKey) {
+                        console.error("No group private key found");
+                        return;
+                    }
+
+                    pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
+                    signAndPublish = (evt: any) =>
+                        signWithPrivateKey(evt, appState.groupPrivateKey!, relays);
+                } else {
+                    // Nostr mode: use NIP-07
+                    pubkey = await getNip07Pubkey();
+                    signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
+                }
             } catch (e) {
-                console.error("Failed to init Nostr:", e);
+                console.error("Failed to init Nostr/Group:", e);
             }
         }
 

@@ -58,33 +58,74 @@
             let signAndPublish: any;
             let relays: string[] | undefined;
 
-            if (mode === "nostr") {
+            if (mode === "nostr" || mode === "group") {
                 try {
-                    console.log("[WikiApp] Getting pubkey...");
-                    pubkey = await getNip07Pubkey();
-                    console.log("[WikiApp] Got pubkey:", pubkey);
                     const config = await loadConfig();
                     relays = config.docRelays;
-                    signAndPublish = async (evt: any) => {
-                        console.log(
-                            "[WikiApp] signAndPublish called for kind:",
-                            evt.kind,
-                        );
-                        saveStatus = "saving";
-                        try {
-                            const res = await signAndPublishNip07(evt, relays);
-                            saveStatus = "saved";
-                            return res;
-                        } catch (e) {
-                            console.error("Failed to publish", e);
-                            saveStatus = "error";
-                            return undefined;
+
+                    if (mode === "group") {
+                        // Group mode: use private key from appState
+                        console.log("[WikiApp] Initializing Group mode...");
+                        const { appState } = await import("$lib/stores/appState.svelte");
+                        const { signWithPrivateKey } = await import("$lib/groupAuth");
+                        const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
+
+                        // CRITICAL: Wait for group initialization to complete
+                        await appState.ensureInitialized();
+
+                        if (!appState.groupPrivateKey) {
+                            console.error("No group private key found");
+                            error = "Gruppen-Key nicht gefunden. Bitte melde dich erneut an.";
+                            loading = false;
+                            return;
                         }
-                    };
+
+                        pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
+                        console.log("[WikiApp] Got pubkey from group key:", pubkey);
+                        
+                        signAndPublish = async (evt: any) => {
+                            console.log(
+                                "[WikiApp] signAndPublish (group) called for kind:",
+                                evt.kind,
+                            );
+                            saveStatus = "saving";
+                            try {
+                                const res = await signWithPrivateKey(evt, appState.groupPrivateKey!, relays);
+                                saveStatus = "saved";
+                                return res;
+                            } catch (e) {
+                                console.error("Failed to publish", e);
+                                saveStatus = "error";
+                                return undefined;
+                            }
+                        };
+                    } else {
+                        // Nostr mode: use NIP-07
+                        console.log("[WikiApp] Getting pubkey...");
+                        pubkey = await getNip07Pubkey();
+                        console.log("[WikiApp] Got pubkey:", pubkey);
+                        
+                        signAndPublish = async (evt: any) => {
+                            console.log(
+                                "[WikiApp] signAndPublish called for kind:",
+                                evt.kind,
+                            );
+                            saveStatus = "saving";
+                            try {
+                                const res = await signAndPublishNip07(evt, relays);
+                                saveStatus = "saved";
+                                return res;
+                            } catch (e) {
+                                console.error("Failed to publish", e);
+                                saveStatus = "error";
+                                return undefined;
+                            }
+                        };
+                    }
                 } catch (e) {
-                    console.error("Nostr init failed", e);
+                    console.error("Nostr/Group init failed", e);
                     error =
-                        "Nostr-Verbindung fehlgeschlagen. Bitte stelle sicher, dass du eine Nostr-Extension (z.B. Alby) installiert hast.";
+                        "Verbindung fehlgeschlagen. Bitte stelle sicher, dass du eine Nostr-Extension (z.B. Alby) installiert hast.";
                     loading = false;
                     return;
                 }
@@ -283,7 +324,7 @@
                         value={pages.find((p) => p.id === activePageId)?.title}
                         oninput={handleTitleChange}
                     />
-                    {#if mode === "nostr"}
+                    {#if mode === "nostr" || mode === "group"}
                         <div
                             class="text-xs px-2 py-1 rounded"
                             class:bg-green-100={saveStatus === "saved"}

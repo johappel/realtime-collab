@@ -20,17 +20,28 @@ export function useNostrYDoc(
   signAndPublish: (evt: EventTemplate) => Promise<any>,
   debug: boolean = false,
   relays?: string[],
+  userIdentifier?: string, // Optional: unique user identifier (e.g., nickname in group mode)
+  isGroupMode: boolean = false, // If true, allows multiple users with same pubkey
 ): UseNostrYDocResult {
-  // Try to restore clientID from sessionStorage to prevent "ghost users" on reload
+  // Try to restore clientID to prevent "ghost users" on reload
+  // In group mode, we need to use a user-specific key to ensure each user gets their own clientID
   let clientID: number | undefined;
   try {
-    const stored = sessionStorage.getItem(`yjs_clientId_${documentId}`);
+    // Use userIdentifier (nickname) if provided to make clientID unique per user, not just per document
+    const storageKey = userIdentifier 
+      ? `yjs_clientId_${documentId}_${userIdentifier}` 
+      : `yjs_clientId_${documentId}`;
+    
+    // Use localStorage instead of sessionStorage for group mode to persist across tabs/sessions
+    const storage = userIdentifier ? localStorage : sessionStorage;
+    const stored = storage.getItem(storageKey);
+    
     if (stored) {
       clientID = parseInt(stored, 10);
-      if (debug) console.log(`[useNostrYDoc] Restored clientID: ${clientID}`);
+      console.log(`[useNostrYDoc] ✅ Restored clientID: ${clientID} for user: ${userIdentifier || 'default'}`);
     }
   } catch (e) {
-    // ignore
+    console.warn('[useNostrYDoc] Failed to restore clientID:', e);
   }
 
   // If no stored ID, Yjs will generate one. We should store it after creation.
@@ -45,14 +56,21 @@ export function useNostrYDoc(
   const ydoc = new Y.Doc(ydocOptions);
   
   if (!clientID) {
-      if (debug) console.log(`[useNostrYDoc] Generated new clientID: ${ydoc.clientID}`);
+      console.log(`[useNostrYDoc] 🆕 Generated new clientID: ${ydoc.clientID} for user: ${userIdentifier || 'default'}`);
   }
   
-  // Store the clientID for next reload
+  // Store the clientID for next reload with user-specific key
   try {
-    sessionStorage.setItem(`yjs_clientId_${documentId}`, ydoc.clientID.toString());
+    const storageKey = userIdentifier 
+      ? `yjs_clientId_${documentId}_${userIdentifier}` 
+      : `yjs_clientId_${documentId}`;
+    
+    // Use localStorage for group mode to persist across tabs/sessions
+    const storage = userIdentifier ? localStorage : sessionStorage;
+    storage.setItem(storageKey, ydoc.clientID.toString());
+    console.log(`[useNostrYDoc] 💾 Stored clientID: ${ydoc.clientID} with key: ${storageKey}`);
   } catch (e) {
-    // ignore
+    console.warn('[useNostrYDoc] Failed to store clientID:', e);
   }
 
   const yXmlFragment = ydoc.getXmlFragment('prosemirror');
@@ -77,6 +95,7 @@ export function useNostrYDoc(
     signAndPublish,
     relays,
     debug,
+    isGroupMode,
   });
 
   return { ydoc, yXmlFragment, provider, awareness, awarenessProvider, persistence };

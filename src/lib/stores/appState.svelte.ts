@@ -10,6 +10,10 @@ class AppState {
     // Group mode specific
     groupCode = $state<string | null>(null);
     groupPrivateKey = $state<string | null>(null);
+    
+    // Track initialization state
+    private initPromise: Promise<void> | null = null;
+    isInitialized = $state(false);
 
     constructor() {
         // Load initial state from localStorage if available
@@ -25,8 +29,23 @@ class AppState {
             if (this.mode === 'group') {
                 this.groupCode = localStorage.getItem('app_group_code');
                 console.log('[AppState Constructor] Restored groupCode:', this.groupCode);
+                
+                // CRITICAL: Initialize group mode immediately to restore user identity
+                // This ensures user.name and user.color are set BEFORE apps initialize
+                if (this.groupCode) {
+                    this.initPromise = this.initGroup();
+                    this.initPromise.finally(() => this.isInitialized = true);
+                }
             }
         }
+    }
+    
+    // Ensure initialization is complete before proceeding
+    async ensureInitialized() {
+        if (this.initPromise) {
+            await this.initPromise;
+        }
+        return true;
     }
 
     setMode(newMode: 'local' | 'nostr' | 'group') {
@@ -45,14 +64,24 @@ class AppState {
         const config = await loadConfig();
         this.relays = config.docRelays;
 
-        console.log('[AppState init] Mode:', this.mode);
+        console.log('[AppState init] Mode:', this.mode, 'Already initialized:', this.isInitialized);
+
+        // If already initializing (from constructor), wait for it
+        if (this.initPromise) {
+            console.log('[AppState init] Waiting for existing init promise...');
+            await this.initPromise;
+            return;
+        }
 
         if (this.mode === 'nostr') {
             await this.initNostr();
         } else if (this.mode === 'group') {
             console.log('[AppState init] Calling initGroup...');
-            await this.initGroup();
+            this.initPromise = this.initGroup();
+            await this.initPromise;
         }
+        
+        this.isInitialized = true;
     }
 
     async initNostr() {
@@ -78,7 +107,7 @@ class AppState {
             console.log('[initGroup] Starting, groupCode:', this.groupCode);
 
             if (!this.groupCode) {
-                console.warn("Group code not set");
+                console.warn("[initGroup] Group code not set");
                 return;
             }
 
@@ -89,15 +118,29 @@ class AppState {
             // Get public key
             const pubkey = getPubkeyFromPrivateKey(this.groupPrivateKey);
             this.user.pubkey = pubkey;
-            this.user.color = getRandomColor(pubkey);
             console.log('[initGroup] Generated pubkey:', pubkey);
 
-            // Get nickname from localStorage or use default
-            const nickname = getOrSetLocalIdentity();
-            this.user.name = nickname || 'GroupMember';
-            console.log('[initGroup] Set nickname:', this.user.name);
+            // Get nickname from localStorage or generate unique default
+            let nickname = getOrSetLocalIdentity();
+            if (!nickname) {
+                // Generate a unique nickname if none exists
+                // Use a random ID to ensure each browser/tab has a unique identity
+                const randomId = Math.random().toString(36).substring(2, 8);
+                nickname = `User-${randomId}`;
+                getOrSetLocalIdentity(nickname); // Save it for consistency
+                console.log('[initGroup] Generated new random nickname:', nickname);
+            } else {
+                console.log('[initGroup] Restored existing nickname from localStorage:', nickname);
+            }
+            this.user.name = nickname;
+            
+            // IMPORTANT: Generate color based on nickname, NOT pubkey!
+            // In group mode, all users share the same pubkey, so we need
+            // unique colors per user based on their individual nickname.
+            this.user.color = getRandomColor(this.user.name);
+            console.log('[initGroup] ✅ Group initialized - User:', this.user.name, 'Color:', this.user.color, 'Pubkey:', pubkey.substring(0, 8) + '...');
         } catch (e) {
-            console.error("Failed to init Group mode:", e);
+            console.error("[initGroup] ❌ Failed to init Group mode:", e);
         }
     }
 

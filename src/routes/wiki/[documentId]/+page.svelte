@@ -20,8 +20,22 @@
     let newPageTitle = $state('');
     let showSidebar = $state(true);
 
-    onMount(() => {
-        appState.init();
+    onMount(async () => {
+        await appState.init();
+        
+        // Check for URL parameters for auto-login with group code
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupCode = urlParams.get("code");
+        const nickname = urlParams.get("name");
+
+        if (groupCode) {
+            // Auto-login with group code
+            await appState.setGroupCode(groupCode, nickname || undefined);
+            await appState.initGroup();
+
+            // Remove parameters from URL after processing
+            window.history.replaceState({}, "", window.location.pathname);
+        }
     });
 
     function handleCreatePage() {

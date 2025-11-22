@@ -50,7 +50,8 @@
   }>();
 
   const defaultUser = { name: "Anon", color: "#ff8800" } as const;
-  const editorUser = user ?? defaultUser;
+  // Use $derived instead of const to ensure reactivity when user prop changes
+  const editorUser = $derived(user ?? defaultUser);
 
   let editorElement: HTMLDivElement | null = $state(null);
   let bubbleMenuElement: HTMLDivElement | null = $state(null);
@@ -94,12 +95,10 @@
             const { signWithPrivateKey } = await import("$lib/groupAuth");
             const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
 
-            // Wait for groupPrivateKey to be initialized (max 5 seconds)
-            const startTime = Date.now();
-            while (!appState.groupPrivateKey && Date.now() - startTime < 5000) {
-              await new Promise((resolve) => setTimeout(resolve, 100));
-              if (cancelled) return;
-            }
+            // CRITICAL: Wait for group initialization to complete
+            console.log('[TipTapEditor] Waiting for group initialization...');
+            await appState.ensureInitialized();
+            console.log('[TipTapEditor] Group initialized, user:', appState.user.name);
 
             if (!appState.groupPrivateKey) {
               throw new Error(
@@ -123,12 +122,17 @@
 
           if (cancelled) return;
 
+          // In group mode, use editorUser.name as identifier to ensure unique clientID per user
+          const userIdentifier = mode === "group" ? editorUser.name : undefined;
+          const isGroupMode = mode === "group";
           const result = useNostrYDoc(
             documentId,
             pubkey,
             signAndPublish,
             false,
             config.docRelays,
+            userIdentifier,
+            isGroupMode,
           );
           newYdoc = result.ydoc;
           newAwareness = result.awareness;

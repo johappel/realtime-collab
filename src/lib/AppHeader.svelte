@@ -27,10 +27,11 @@
     let showSettings = $state(false);
     let settingsButton: HTMLButtonElement | null = $state(null);
 
-    function handleGroupMode() {
+    async function handleGroupMode() {
         const code = window.prompt('Bitte Gruppen-Code eingeben:', appState.groupCode || '');
         if (code) {
-            appState.setGroupCode(code);
+            await appState.setGroupCode(code);
+            await appState.initGroup();
         }
     }
 </script>
