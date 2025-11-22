@@ -90,8 +90,22 @@
 </script>
 
 {#if open}
-    <div class="dialog-overlay" onclick={handleCancel}>
-        <div class="dialog" onclick={(e) => e.stopPropagation()}>
+    <div
+        class="dialog-overlay"
+        onclick={handleCancel}
+        onkeydown={(e) => e.key === "Escape" && handleCancel()}
+        role="button"
+        tabindex="0"
+        aria-label="Close dialog"
+    >
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <div
+            class="dialog"
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
+            role="document"
+            tabindex="-1"
+        >
             <div class="dialog-header">
                 <h2>Anmelden</h2>
                 <button

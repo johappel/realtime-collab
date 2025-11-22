@@ -6,11 +6,17 @@
         type DrawPath,
         type WhiteboardCard,
         type WhiteboardFrame,
+        type WhiteboardImage,
     } from "./useWhiteboardYDoc";
     import { loadConfig } from "$lib/config";
     import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
     import { theme } from "$lib/stores/theme.svelte";
     import * as Y from "yjs";
+    import EncryptedImage from "$lib/components/EncryptedImage.svelte";
+    import { resizeImage } from "$lib/imageUtils";
+    import { encryptFile, arrayBufferToHex } from "$lib/cryptoUtils";
+    import { uploadFile } from "$lib/blossomClient";
+    import { appState } from "$lib/stores/appState.svelte";
 
     let {
         documentId,
@@ -37,6 +43,7 @@
     let paths: Writable<DrawPath[]> = $state(writable([]));
     let cards: Writable<WhiteboardCard[]> = $state(writable([]));
     let frames: Writable<WhiteboardFrame[]> = $state(writable([]));
+    let images: Writable<WhiteboardImage[]> = $state(writable([]));
     let cleanup: (() => void) | null = null;
     let actions: any = {};
     let ydoc: Y.Doc | null = $state(null);
@@ -57,6 +64,8 @@
     let draggingCardId: string | null = null;
     let draggingFrameId: string | null = null;
     let resizingFrameId: string | null = null;
+    let draggingImageId: string | null = null;
+    let resizingImageId: string | null = null;
     let attachedCardIds: Set<string> = new Set();
     let dragOffset = { x: 0, y: 0 };
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
@@ -86,9 +95,15 @@
 
                 if (mode === "group") {
                     // Group mode: use private key from appState
-                    const { appState } = await import("$lib/stores/appState.svelte");
-                    const { signWithPrivateKey } = await import("$lib/groupAuth");
-                    const { getPubkeyFromPrivateKey } = await import("$lib/groupAuth");
+                    const { appState } = await import(
+                        "$lib/stores/appState.svelte"
+                    );
+                    const { signWithPrivateKey } = await import(
+                        "$lib/groupAuth"
+                    );
+                    const { getPubkeyFromPrivateKey } = await import(
+                        "$lib/groupAuth"
+                    );
 
                     // CRITICAL: Wait for group initialization to complete
                     await appState.ensureInitialized();
@@ -100,11 +115,16 @@
 
                     pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
                     signAndPublish = (evt: any) =>
-                        signWithPrivateKey(evt, appState.groupPrivateKey!, relays);
+                        signWithPrivateKey(
+                            evt,
+                            appState.groupPrivateKey!,
+                            relays,
+                        );
                 } else {
                     // Nostr mode: use NIP-07
                     pubkey = await getNip07Pubkey();
-                    signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
+                    signAndPublish = (evt: any) =>
+                        signAndPublishNip07(evt, relays);
                 }
             } catch (e) {
                 console.error("Failed to init Nostr/Group:", e);
@@ -123,6 +143,7 @@
         paths = result.paths;
         cards = result.cards;
         frames = result.frames;
+        images = result.images;
         cleanup = result.cleanup;
         ydoc = result.ydoc;
         awareness = result.awareness;
@@ -136,6 +157,9 @@
             addFrame: result.addFrame,
             updateFrame: result.updateFrame,
             deleteFrame: result.deleteFrame,
+            addImage: result.addImage,
+            updateImage: result.updateImage,
+            deleteImage: result.deleteImage,
             clearBoard: result.clearBoard,
             undo: result.undo,
         };
@@ -228,13 +252,7 @@
     }
 
     function handleStart(e: MouseEvent | TouchEvent) {
-        // If clicking on a card/frame handle, those handlers will fire first and stop propagation if needed.
-        // But if we are here, we clicked on the canvas or a non-interactive part.
-
         if (activeTool === "select") return;
-
-        // Don't prevent default immediately if we might be interacting with form elements
-        // But for drawing, we need to.
         if (activeTool === "pen") e.preventDefault();
 
         const { x, y } = getPoint(e);
@@ -275,7 +293,6 @@
                     y: newY,
                 });
 
-                // Move attached cards
                 attachedCardIds.forEach((cardId) => {
                     const card = $cards.find((c) => c.id === cardId);
                     if (card) {
@@ -293,18 +310,33 @@
                 width: Math.max(100, resizeStart.width + dx),
                 height: Math.max(100, resizeStart.height + dy),
             });
+        } else if (draggingImageId) {
+            actions.updateImage(draggingImageId, {
+                x: x - dragOffset.x,
+                y: y - dragOffset.y,
+            });
+        } else if (resizingImageId) {
+            const dx = x - resizeStart.x;
+            const dy = y - resizeStart.y;
+            actions.updateImage(resizingImageId, {
+                width: Math.max(50, resizeStart.width + dx),
+                height: Math.max(50, resizeStart.height + dy),
+            });
         }
     }
 
     function handleEnd(e: MouseEvent | TouchEvent) {
         if (isDrawing && currentPathId) {
             actions.endPath(currentPathId);
-            isDrawing = false;
-            currentPathId = null;
         }
+        isDrawing = false;
+        currentPathId = null;
         draggingCardId = null;
         draggingFrameId = null;
         resizingFrameId = null;
+        draggingImageId = null;
+        resizingImageId = null;
+        attachedCardIds.clear();
     }
 
     function handleCardDragStart(
@@ -313,13 +345,9 @@
     ) {
         if (activeTool !== "select") return;
         e.stopPropagation();
-
         const { x, y } = getPoint(e);
         draggingCardId = card.id;
-        dragOffset = {
-            x: x - card.x,
-            y: y - card.y,
-        };
+        dragOffset = { x: x - card.x, y: y - card.y };
     }
 
     function handleFrameDragStart(
@@ -328,15 +356,10 @@
     ) {
         if (activeTool !== "select") return;
         e.stopPropagation();
-
         const { x, y } = getPoint(e);
         draggingFrameId = frame.id;
-        dragOffset = {
-            x: x - frame.x,
-            y: y - frame.y,
-        };
+        dragOffset = { x: x - frame.x, y: y - frame.y };
 
-        // Find attached cards (center point inside frame)
         attachedCardIds.clear();
         $cards.forEach((card) => {
             const cx = card.x + card.width / 2;
@@ -358,32 +381,43 @@
     ) {
         if (activeTool !== "select") return;
         e.stopPropagation();
-
         const { x, y } = getPoint(e);
         resizingFrameId = frame.id;
-        resizeStart = {
-            x,
-            y,
-            width: frame.width,
-            height: frame.height,
-        };
+        resizeStart = { x, y, width: frame.width, height: frame.height };
+    }
+
+    function handleImageDragStart(
+        e: MouseEvent | TouchEvent,
+        image: WhiteboardImage,
+    ) {
+        if (activeTool !== "select") return;
+        e.stopPropagation();
+        const { x, y } = getPoint(e);
+        draggingImageId = image.id;
+        dragOffset = { x: x - image.x, y: y - image.y };
+    }
+
+    function handleImageResizeStart(
+        e: MouseEvent | TouchEvent,
+        image: WhiteboardImage,
+    ) {
+        if (activeTool !== "select") return;
+        e.stopPropagation();
+        const { x, y } = getPoint(e);
+        resizingImageId = image.id;
+        resizeStart = { x, y, width: image.width, height: image.height };
     }
 
     function autoResizeTextarea(e: Event) {
         const target = e.target as HTMLTextAreaElement;
         target.style.height = "auto";
         target.style.height = target.scrollHeight + "px";
-        // Update card height in model if needed, or just let it visually expand
-        // If we want the card background to grow, we need to update the model height
-        // But for now, let's just let the textarea grow within the foreignObject.
-        // Wait, foreignObject has fixed height. We need to update the card height.
-        // We can debounce this update.
     }
 
     function updateCardHeight(id: string, height: number) {
         actions.updateCard(id, {
             height: Math.min(MAX_CARD_HEIGHT, Math.max(150, height + 40)),
-        }); // +40 for padding/header
+        });
     }
 
     function pointsToPath(points: number[][]): string {
@@ -398,12 +432,70 @@
                 .join(" ")
         );
     }
+
+    export async function uploadImage() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+
+        input.onchange = async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+
+            const key = appState.groupPrivateKey;
+            if (!key) {
+                alert("Fehler: Kein Gruppen-Key gefunden.");
+                return;
+            }
+
+            try {
+                const resizedBlob = await resizeImage(file, 800, 800);
+                const { encryptedBlob, iv } = await encryptFile(
+                    resizedBlob,
+                    key,
+                );
+                const ivHex = arrayBufferToHex(iv.buffer as ArrayBuffer);
+                const config = await loadConfig();
+                const result = await uploadFile(
+                    encryptedBlob,
+                    key,
+                    config.blossomServer || "https://cdn.satellite.earth",
+                    config.blossomRequireAuth ?? false,
+                );
+
+                const img = new Image();
+                img.src = URL.createObjectURL(resizedBlob);
+                await new Promise((resolve) => {
+                    img.onload = resolve;
+                });
+
+                actions.addImage(
+                    100,
+                    100,
+                    result.url,
+                    ivHex,
+                    file.type,
+                    img.width,
+                    img.height,
+                );
+
+                URL.revokeObjectURL(img.src);
+                console.log("Image uploaded successfully:", result.url);
+            } catch (e) {
+                console.error("Image upload failed:", e);
+                alert(
+                    `Upload fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`,
+                );
+            }
+        };
+
+        input.click();
+    }
 </script>
 
 <div class="flex flex-col h-full w-full bg-white dark:bg-gray-900">
-    <!-- Canvas -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
         class="flex-1 relative overflow-hidden cursor-crosshair touch-none bg-gray-100 dark:bg-gray-900 outline-none"
         role="application"
@@ -418,7 +510,6 @@
         ontouchend={handleEnd}
     >
         <svg bind:this={svgElement} class="w-full h-full block">
-            <!-- Frames (Behind everything) -->
             {#each $frames as frame (frame.id)}
                 <foreignObject
                     x={frame.x}
@@ -427,11 +518,10 @@
                     height={frame.height}
                     class="overflow-visible pointer-events-none"
                 >
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <div
                         class="w-full h-full border-2 border-dashed border-gray-400 rounded-lg flex flex-col relative pointer-events-auto bg-gray-50/50 hover:bg-gray-100/50 transition-colors"
                     >
-                        <!-- Frame Header / Drag Handle -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
                             class="h-8 bg-gray-200/80 rounded-t-md flex items-center px-2 cursor-move"
                             onmousedown={(e) => handleFrameDragStart(e, frame)}
@@ -446,6 +536,7 @@
                                         label: e.currentTarget.value,
                                     })}
                                 onmousedown={(e) => e.stopPropagation()}
+                                aria-label="Frame label"
                             />
                             <button
                                 aria-label="Delete frame"
@@ -459,8 +550,7 @@
                                 ×
                             </button>
                         </div>
-
-                        <!-- Resize Handle -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
                             class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-gray-400/50 rounded-tl"
                             onmousedown={(e) =>
@@ -472,7 +562,6 @@
                 </foreignObject>
             {/each}
 
-            <!-- Paths -->
             {#each $paths as path (path.id)}
                 <path
                     d={pointsToPath(path.points)}
@@ -484,7 +573,6 @@
                 />
             {/each}
 
-            <!-- Cards (ForeignObject) -->
             {#each $cards as card (card.id)}
                 <foreignObject
                     x={card.x}
@@ -493,18 +581,16 @@
                     height={card.height}
                     class="overflow-visible pointer-events-none"
                 >
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <div
                         class="w-full h-full shadow-md rounded flex flex-col relative group pointer-events-auto transition-shadow hover:shadow-lg"
                         style="background-color: {card.color};"
                     >
-                        <!-- Drag Handle -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
                             class="h-6 w-full cursor-move opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded-t flex items-center justify-end px-1"
                             onmousedown={(e) => handleCardDragStart(e, card)}
                             ontouchstart={(e) => handleCardDragStart(e, card)}
                         >
-                            <!-- Color Picker (Mini) -->
                             <div class="flex gap-1 mr-auto">
                                 {#each CARD_COLORS.slice(0, 4) as color}
                                     <button
@@ -521,7 +607,6 @@
                                     ></button>
                                 {/each}
                             </div>
-
                             <button
                                 aria-label="Delete card"
                                 class="text-black/50 hover:text-red-600 font-bold px-1"
@@ -534,7 +619,6 @@
                                 ×
                             </button>
                         </div>
-
                         <textarea
                             class="w-full h-full bg-transparent resize-none outline-none text-gray-900 font-medium font-sans p-2 pt-0"
                             value={card.text}
@@ -549,9 +633,78 @@
                                 );
                             }}
                             onmousedown={(e) => e.stopPropagation()}
-                            ontouchstart={(e) => e.stopPropagation()}
-                            placeholder="Type here..."
+                            aria-label="Card text"
                         ></textarea>
+                    </div>
+                </foreignObject>
+            {/each}
+
+            <!-- Images -->
+            {#each $images as image (image.id)}
+                <foreignObject
+                    x={image.x}
+                    y={image.y}
+                    width={image.width}
+                    height={image.height}
+                    class="overflow-visible pointer-events-none"
+                >
+                    <div
+                        class="w-full h-full relative group pointer-events-auto"
+                    >
+                        <!-- Drag Handle (Overlay) -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div
+                            class="absolute inset-0 cursor-move border-2 border-transparent group-hover:border-blue-400 transition-colors"
+                            onmousedown={(e) => handleImageDragStart(e, image)}
+                            ontouchstart={(e) => handleImageDragStart(e, image)}
+                        ></div>
+
+                        <!-- Image Content -->
+                        <div class="w-full h-full overflow-hidden">
+                            <EncryptedImage
+                                src={image.url}
+                                iv={image.iv}
+                                mimetype={image.mimetype}
+                                alt="Whiteboard Image"
+                                class="w-full h-full object-contain pointer-events-none select-none"
+                            />
+                        </div>
+
+                        <!-- Delete Button -->
+                        <button
+                            class="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-md text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 z-10"
+                            onclick={(e) => {
+                                e.stopPropagation();
+                                actions.deleteImage(image.id);
+                            }}
+                            onmousedown={(e) => e.stopPropagation()}
+                            aria-label="Delete image"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                ><path d="M18 6 6 18" /><path
+                                    d="m6 6 12 12"
+                                /></svg
+                            >
+                        </button>
+
+                        <!-- Resize Handle -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div
+                            class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-blue-400/50 rounded-tl opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            onmousedown={(e) =>
+                                handleImageResizeStart(e, image)}
+                            ontouchstart={(e) =>
+                                handleImageResizeStart(e, image)}
+                        ></div>
                     </div>
                 </foreignObject>
             {/each}
