@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
     import { onMount } from "svelte";
 
     let activeSection = "intro";
 
-    function scrollTo(id) {
+    function scrollTo(id: string) {
         document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
         activeSection = id;
     }

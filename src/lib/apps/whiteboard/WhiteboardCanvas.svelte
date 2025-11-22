@@ -1628,6 +1628,75 @@
                             ></div>
                         </div>
                     </foreignObject>
+                {:else if isFigure(element)}
+                    <!-- Figure Element -->
+                    <g
+                        transform="translate({element.x}, {element.y})"
+                        class="group cursor-move"
+                        onmousedown={(e) => handleFigureDragStart(e, element)}
+                        ontouchstart={(e) => handleFigureDragStart(e, element)}
+                        role="group"
+                        aria-label="Figure {element.name}"
+                    >
+                        <!-- Selection Ring -->
+                        {#if selectedElementIds.has(element.id)}
+                            <rect
+                                x="-5"
+                                y="-5"
+                                width="60"
+                                height="110"
+                                fill="none"
+                                stroke="rgb(59, 130, 246)"
+                                stroke-width="2"
+                                rx="5"
+                            />
+                        {/if}
+
+                        <!-- Body -->
+                        <path
+                            d="M 5 90 L 5 45 Q 25 30 45 45 L 45 90 Z"
+                            fill={element.color}
+                            stroke="black"
+                            stroke-width="2"
+                        />
+                        
+                        <!-- Head -->
+                        <circle
+                            cx="25"
+                            cy="20"
+                            r="15"
+                            fill={element.color}
+                            stroke="black"
+                            stroke-width="2"
+                        />
+
+                        <!-- Name Label (Editable) -->
+                        <foreignObject x="-25" y="95" width="100" height="30">
+                            <input
+                                type="text"
+                                class="w-full bg-transparent text-center text-sm font-bold outline-none text-gray-900 dark:text-gray-100"
+                                value={element.name}
+                                oninput={(e) => actions.updateFigure(element.id, { name: e.currentTarget.value })}
+                                onmousedown={(e) => e.stopPropagation()}
+                                aria-label="Figure name"
+                            />
+                        </foreignObject>
+
+                        <!-- Delete Button -->
+                        <foreignObject x="35" y="-10" width="20" height="20" class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                class="w-full h-full bg-white rounded-full shadow-md text-red-500 flex items-center justify-center hover:bg-red-50"
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    actions.deleteFigure(element.id);
+                                }}
+                                onmousedown={(e) => e.stopPropagation()}
+                                aria-label="Delete figure"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </foreignObject>
+                    </g>
                 {:else}
                     <!-- Image Element -->
                     <foreignObject
@@ -1698,73 +1767,6 @@
                             ></div>
                         </div>
                     </foreignObject>
-                {:else if isFigure(element)}
-                    <!-- Figure Element -->
-                    <g
-                        transform="translate({element.x}, {element.y})"
-                        class="group cursor-move"
-                        onmousedown={(e) => handleFigureDragStart(e, element)}
-                        ontouchstart={(e) => handleFigureDragStart(e, element)}
-                    >
-                        <!-- Selection Ring -->
-                        {#if selectedElementIds.has(element.id)}
-                            <rect
-                                x="-5"
-                                y="-5"
-                                width="60"
-                                height="110"
-                                fill="none"
-                                stroke="rgb(59, 130, 246)"
-                                stroke-width="2"
-                                rx="5"
-                            />
-                        {/if}
-
-                        <!-- Body -->
-                        <path
-                            d="M 5 90 L 5 45 Q 25 30 45 45 L 45 90 Z"
-                            fill={element.color}
-                            stroke="black"
-                            stroke-width="2"
-                        />
-                        
-                        <!-- Head -->
-                        <circle
-                            cx="25"
-                            cy="20"
-                            r="15"
-                            fill={element.color}
-                            stroke="black"
-                            stroke-width="2"
-                        />
-
-                        <!-- Name Label (Editable) -->
-                        <foreignObject x="-25" y="95" width="100" height="30">
-                            <input
-                                type="text"
-                                class="w-full bg-transparent text-center text-sm font-bold outline-none text-gray-900 dark:text-gray-100"
-                                value={element.name}
-                                oninput={(e) => actions.updateFigure(element.id, { name: e.currentTarget.value })}
-                                onmousedown={(e) => e.stopPropagation()}
-                                aria-label="Figure name"
-                            />
-                        </foreignObject>
-
-                        <!-- Delete Button -->
-                        <foreignObject x="35" y="-10" width="20" height="20" class="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                                class="w-full h-full bg-white rounded-full shadow-md text-red-500 flex items-center justify-center hover:bg-red-50"
-                                onclick={(e) => {
-                                    e.stopPropagation();
-                                    actions.deleteFigure(element.id);
-                                }}
-                                onmousedown={(e) => e.stopPropagation()}
-                                aria-label="Delete figure"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                            </button>
-                        </foreignObject>
-                    </g>
                 {/if}
             {/each}
         </svg>
