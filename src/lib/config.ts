@@ -1,6 +1,7 @@
 export interface AppConfig {
     docRelays: string[];
     profileRelays: string[];
+    blossomServer: string;
 }
 
 let configCache: AppConfig | null = null;
@@ -18,7 +19,8 @@ export async function loadConfig(): Promise<AppConfig> {
         // Fallback defaults
         return {
             docRelays: ['ws://localhost:7000'],
-            profileRelays: ['wss://relay.damus.io', 'ws://localhost:7000']
+            profileRelays: ['wss://relay.damus.io', 'ws://localhost:7000'],
+            blossomServer: 'https://cdn.satellite.earth'
         };
     }
 }

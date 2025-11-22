@@ -6,5 +6,6 @@
     "wss://relay.damus.io",
     "wss://relay.primal.net",
     "wss://relay-rpi.edufeed.org"
-  ]
+  ],
+  "blossomServer": "http://localhost:7010"
 }

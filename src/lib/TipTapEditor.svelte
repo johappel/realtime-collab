@@ -15,6 +15,7 @@
   import Link from "@tiptap/extension-link";
   import Youtube from "@tiptap/extension-youtube";
   import "./tiptap.css";
+  import { EncryptedImage } from "./tiptap/EncryptedImageExtension";
   import { useLocalYDoc } from "./useLocalYDoc";
   import { useNostrYDoc } from "./useNostrYDoc";
   import { getNip07Pubkey, signAndPublishNip07 } from "./nostrUtils";
@@ -299,6 +300,7 @@
         TableHeader,
         TableCell,
         Image,
+        EncryptedImage,
         Link.configure({
           openOnClick: false,
           autolink: true,

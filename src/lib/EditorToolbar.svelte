@@ -25,11 +25,28 @@
   import Image from "lucide-svelte/icons/image";
   import Link from "lucide-svelte/icons/link";
   import Youtube from "lucide-svelte/icons/youtube";
+  import Loader2 from "lucide-svelte/icons/loader-2";
+
+  import { appState } from "$lib/stores/appState.svelte";
+  import { uploadFile } from "$lib/blossomClient";
+  import { encryptFile, arrayBufferToHex } from "$lib/cryptoUtils";
+  import { loadConfig } from "$lib/config";
 
   let { editor } = $props<{ editor: Editor | null }>();
 
   let showColorPalette = $state(false);
   let showHighlightPalette = $state(false);
+  let fileInput = $state<HTMLInputElement>();
+  let uploading = $state(false);
+  let blossomServerUrl = $state<string>("https://cdn.satellite.earth");
+
+  $effect(() => {
+    loadConfig().then((config) => {
+      if (config.blossomServer) {
+        blossomServerUrl = config.blossomServer;
+      }
+    });
+  });
 
   const textColors = [
     { name: "Red", value: "#ef4444" },
@@ -76,19 +93,76 @@
   }
 
   function addTable() {
-    editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    editor
+      ?.chain()
+      .focus()
+      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+      .run();
   }
 
   function addImage() {
-    const url = window.prompt('URL');
-    if (url) {
-      editor?.chain().focus().setImage({ src: url }).run();
+    // Check if we are in Group Mode and have a key
+    if (appState.mode === "group" && appState.groupPrivateKey) {
+      fileInput?.click();
+    } else {
+      // Fallback for non-group mode or missing key
+      const url = window.prompt("URL");
+      if (url) {
+        editor?.chain().focus().setImage({ src: url }).run();
+      }
+    }
+  }
+
+  async function handleFileSelect(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    const key = appState.groupPrivateKey;
+
+    if (!key) {
+      alert("Fehler: Kein Gruppen-Key gefunden.");
+      return;
+    }
+
+    uploading = true;
+    try {
+      // 1. Encrypt
+      const { encryptedBlob, iv } = await encryptFile(file, key);
+      const ivHex = arrayBufferToHex(iv.buffer as ArrayBuffer);
+
+      // 2. Upload
+      const result = await uploadFile(encryptedBlob, key, blossomServerUrl);
+
+      // 3. Insert Node
+      editor
+        ?.chain()
+        .focus()
+        .insertContent({
+          type: "encryptedImage",
+          attrs: {
+            src: result.url,
+            iv: ivHex,
+            mimetype: file.type,
+            alt: file.name,
+          },
+        })
+        .run();
+    } catch (err) {
+      console.error("Upload failed:", err);
+      alert(
+        "Upload fehlgeschlagen: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      uploading = false;
+      input.value = ""; // Reset input
     }
   }
 
   function addLink() {
-    const previousUrl = editor?.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
+    const previousUrl = editor?.getAttributes("link").href;
+    const url = window.prompt("URL", previousUrl);
 
     // cancelled
     if (url === null) {
@@ -96,17 +170,22 @@
     }
 
     // empty
-    if (url === '') {
-      editor?.chain().focus().extendMarkRange('link').unsetLink().run();
+    if (url === "") {
+      editor?.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
 
     // update link
-    editor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    editor
+      ?.chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: url })
+      .run();
   }
 
   function addYoutube() {
-    const url = window.prompt('Enter YouTube URL');
+    const url = window.prompt("Enter YouTube URL");
 
     if (url) {
       editor?.commands.setYoutubeVideo({
@@ -115,6 +194,14 @@
     }
   }
 </script>
+
+<input
+  type="file"
+  bind:this={fileInput}
+  onchange={handleFileSelect}
+  style="display: none"
+  accept="image/*"
+/>
 
 <div class="toolbar">
   <button
@@ -281,12 +368,12 @@
               onclick={() => setHighlightColor(color.value)}
             ></button>
           {:else}
-             <button
+            <button
               type="button"
               class="palette-button reset-button"
               title="Remove highlight"
-              onclick={() => setHighlightColor(color.value)}
-            >✕</button>
+              onclick={() => setHighlightColor(color.value)}>✕</button
+            >
           {/if}
         {/each}
       </div>
@@ -302,7 +389,7 @@
     title="Link"
     onclick={addLink}
     disabled={!editor}
-    class:active={editor?.isActive('link')}
+    class:active={editor?.isActive("link")}
   >
     <Link size={18} />
   </button>
@@ -312,9 +399,13 @@
     aria-label="Image"
     title="Image"
     onclick={addImage}
-    disabled={!editor}
+    disabled={!editor || uploading}
   >
-    <Image size={18} />
+    {#if uploading}
+      <Loader2 size={18} class="animate-spin" />
+    {:else}
+      <Image size={18} />
+    {/if}
   </button>
   <button
     type="button"
@@ -335,12 +426,12 @@
     aria-label="Insert Table"
     title="Insert Table"
     onclick={addTable}
-    disabled={!editor || editor.isActive('table')}
+    disabled={!editor || editor.isActive("table")}
   >
     <Table size={18} />
   </button>
 
-  {#if editor && editor.isActive('table')}
+  {#if editor && editor.isActive("table")}
     <button
       type="button"
       class="toolbar-button"
@@ -504,14 +595,18 @@
     padding: 0.25rem;
     display: flex;
     gap: 0.25rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
     z-index: 20;
   }
 
   :global(.dark) .palette {
     background-color: #1f2937;
     border-color: #374151;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.5),
+      0 2px 4px -1px rgba(0, 0, 0, 0.3);
   }
 
   .palette-button {
@@ -530,7 +625,7 @@
   .palette-button:hover {
     transform: scale(1.1);
   }
-  
+
   .reset-button {
     background-color: white;
     display: flex;
@@ -543,5 +638,18 @@
   :global(.dark) .reset-button {
     background-color: #374151;
     color: #f87171;
+  }
+
+  :global(.animate-spin) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>
