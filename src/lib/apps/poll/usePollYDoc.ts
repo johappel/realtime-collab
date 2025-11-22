@@ -158,10 +158,8 @@ export function usePollYDoc(
     };
 
     const vote = (optionId: string, userName: string, userColor: string) => {
-        console.log('[usePollYDoc] Vote called:', { optionId, userName, userColor, mode });
         ydoc.transact(() => {
             const isMulti = ySettings.get('multiSelect');
-            console.log('[usePollYDoc] Transaction started, isMulti:', isMulti);
             
             // Helper to parse votes from Yjs (handles legacy formats)
             const parseVotes = (votesData: any): Array<{name: string, color: string}> => {
@@ -197,21 +195,17 @@ export function usePollYDoc(
                 const map = yOptions.get(i);
                 if (map.get('id') === optionId) {
                     const votes = parseVotes(map.get('votes'));
-                    console.log('[usePollYDoc] Current votes for option:', votes);
                     const existingIndex = votes.findIndex(v => v.name === userName);
                     if (existingIndex >= 0) {
                         const newVotes = votes.filter(v => v.name !== userName);
                         map.set('votes', JSON.stringify(newVotes));
-                        console.log('[usePollYDoc] Removed vote, new votes:', newVotes);
                     } else {
                         const newVotes = [...votes, { name: userName, color: userColor }];
                         map.set('votes', JSON.stringify(newVotes));
-                        console.log('[usePollYDoc] Added vote, new votes:', newVotes);
                     }
                     break;
                 }
             }
-            console.log('[usePollYDoc] Transaction complete');
         });
     };
 

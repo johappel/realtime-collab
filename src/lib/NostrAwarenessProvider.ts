@@ -54,19 +54,24 @@ export class NostrAwarenessProvider {
         this.debug = opts.debug ?? false;
         this.isGroupMode = opts.isGroupMode ?? false;
 
-        console.log(`[NostrAwarenessProvider] 🆕 Created provider for document: "${this.documentId}"`);
+        if (this.debug) {
+            console.log(`[NostrAwarenessProvider] 🆕 Created provider for document: "${this.documentId}"`);
+        }
 
-        // Clean up any stale states for my user BEFORE subscribing
-        this.cleanupMyOldStates();
-        
         this.subscribe();
         this.bindAwarenessUpdates();
         
-        // Publish my state immediately after subscription
+        // Clean up old states AFTER historical events have been received
         setTimeout(() => {
-            console.log('[NostrAwarenessProvider] 🚀 Initial state publish');
+            if (this.debug) console.log('[NostrAwarenessProvider] 🧹 Delayed cleanup of old states');
+            this.cleanupMyOldStates();
+        }, 1000);
+        
+        // Publish my state after cleanup
+        setTimeout(() => {
+            if (this.debug) console.log('[NostrAwarenessProvider] 🚀 Initial state publish');
             this.publishMyState();
-        }, 500);
+        }, 1500);
         
         this.startHeartbeat();
         this.startStaleUserCleanup();
@@ -90,7 +95,9 @@ export class NostrAwarenessProvider {
                     since: now - 60, // Get states from last 60 seconds
                 });
 
-                console.log(`[NostrAwarenessProvider] 🔌 Subscribed to ${url} for awareness (kind 31339)`);
+                if (this.debug) {
+                    console.log(`[NostrAwarenessProvider] 🔌 Subscribed to ${url} for awareness (kind 31339)`);
+                }
 
                 this.activeRelays.push(relay);
             } catch (e) {
@@ -110,36 +117,42 @@ export class NostrAwarenessProvider {
             // CRITICAL: Verify this event is for OUR document
             const dTag = event.tags.find(t => t[0] === 'd')?.[1];
             if (dTag !== this.documentId) {
-                console.log(`[NostrAwarenessProvider] ⏩ Ignoring event for different document: ${dTag} (ours: ${this.documentId})`);
+                if (this.debug) {
+                    console.log(`[NostrAwarenessProvider] ⏩ Ignoring event for different document: ${dTag} (ours: ${this.documentId})`);
+                }
                 return;
             }
 
-            console.log('[NostrAwarenessProvider] 📥 Received event:', {
-                pubkey: event.pubkey.substring(0, 16) + '...',
-                documentId: dTag,
-                isGroupMode: this.isGroupMode,
-                created_at: event.created_at
-            });
+            if (this.debug) {
+                console.log('[NostrAwarenessProvider] 📥 Received event:', {
+                    pubkey: event.pubkey.substring(0, 16) + '...',
+                    documentId: dTag,
+                    isGroupMode: this.isGroupMode,
+                    created_at: event.created_at
+                });
+            }
 
             // Ignore events older than 30 seconds to prevent "ghost" users from previous sessions
             const now = Math.floor(Date.now() / 1000);
             if (event.created_at < now - 30) {
-                console.log(`[NostrAwarenessProvider] ⏰ Ignoring old event from ${event.created_at}`);
+                if (this.debug) console.log(`[NostrAwarenessProvider] ⏰ Ignoring old event from ${event.created_at}`);
                 return;
             }
 
             const content = JSON.parse(event.content);
             const { clientId, state } = content;
 
-            console.log('[NostrAwarenessProvider] 📦 Event content:', {
-                clientId,
-                myClientId: this.awareness.clientID,
-                state: state ? { user: state.user?.name } : null
-            });
+            if (this.debug) {
+                console.log('[NostrAwarenessProvider] 📦 Event content:', {
+                    clientId,
+                    myClientId: this.awareness.clientID,
+                    state: state ? { user: state.user?.name } : null
+                });
+            }
 
             // Ignore updates from our own clientID (echoed events)
             if (clientId === this.awareness.clientID) {
-                console.log('[NostrAwarenessProvider] ⏩ Skipping own clientID');
+                if (this.debug) console.log('[NostrAwarenessProvider] ⏩ Skipping own clientID');
                 return;
             }
 
@@ -151,7 +164,7 @@ export class NostrAwarenessProvider {
             // DISABLED in group mode to allow multiple users with same pubkey
             if (!this.isGroupMode && event.pubkey === this.myPubkey && clientId !== this.awareness.clientID) {
                 if (this.awareness.states.has(clientId)) {
-                    console.log(`[NostrAwarenessProvider] 👻 Removing ghost session ${clientId} for my pubkey`);
+                    if (this.debug) console.log(`[NostrAwarenessProvider] 👻 Removing ghost session ${clientId} for my pubkey`);
                     this.awareness.states.delete(clientId);
                     this.awareness.emit('change', [{
                         added: [],
@@ -159,7 +172,7 @@ export class NostrAwarenessProvider {
                         removed: [clientId]
                     }, 'remote']);
                 }
-                console.log('[NostrAwarenessProvider] ⏩ Skipping ghost from same pubkey');
+                if (this.debug) console.log('[NostrAwarenessProvider] ⏩ Skipping ghost from same pubkey');
                 return;
             }
 
@@ -173,7 +186,9 @@ export class NostrAwarenessProvider {
                     if (existingClientId && existingClientId !== clientId) {
                         // This user has a new clientId (e.g., after reload)
                         if (this.awareness.states.has(existingClientId)) {
-                            console.log(`[NostrAwarenessProvider] 👻 Ghost Killer: Removing old clientId ${existingClientId} for user ${username}`);
+                            if (this.debug) {
+                                console.log(`[NostrAwarenessProvider] 👻 Ghost Killer: Removing old clientId ${existingClientId} for user ${username}`);
+                            }
                             this.awareness.states.delete(existingClientId);
                             this.awareness.emit('change', [{
                                 added: [],
@@ -183,14 +198,16 @@ export class NostrAwarenessProvider {
                         }
                     }
                     this.usernameToClientId.set(username, clientId);
-                    console.log(`[NostrAwarenessProvider] 📝 Tracking user ${username} with clientId ${clientId}`);
+                    if (this.debug) console.log(`[NostrAwarenessProvider] 📝 Tracking user ${username} with clientId ${clientId}`);
                 }
             } else if (event.pubkey) {
                 // Normal mode: Use pubkey to track unique users
                 const existingClientId = this.pubkeyToClientId.get(event.pubkey);
                 if (existingClientId && existingClientId !== clientId) {
                     if (this.awareness.states.has(existingClientId)) {
-                        console.log(`[NostrAwarenessProvider] 👻 Ghost Killer: Removing old clientId ${existingClientId} for pubkey ${event.pubkey}`);
+                        if (this.debug) {
+                            console.log(`[NostrAwarenessProvider] 👻 Ghost Killer: Removing old clientId ${existingClientId} for pubkey ${event.pubkey}`);
+                        }
                         this.awareness.states.delete(existingClientId);
                         this.awareness.emit('change', [{
                             added: [],
@@ -206,7 +223,7 @@ export class NostrAwarenessProvider {
                 if (state === null) {
                     // User went offline
                     if (this.awareness.states.has(clientId)) {
-                        console.log(`[NostrAwarenessProvider] 🚪 Removing user ${clientId}`);
+                        if (this.debug) console.log(`[NostrAwarenessProvider] 🚪 Removing user ${clientId}`);
                         this.awareness.states.delete(clientId);
                         this.awareness.emit('change', [{
                             added: [],
@@ -222,14 +239,16 @@ export class NostrAwarenessProvider {
                     this.lastSeenTimestamp.set(clientId, Date.now());
                     
                     if (JSON.stringify(current) !== JSON.stringify(state)) {
-                        console.log(`[NostrAwarenessProvider] ${current ? '✏️ Updating' : '✅ Adding'} state for ${clientId}:`, state.user?.name);
+                        if (this.debug) {
+                            console.log(`[NostrAwarenessProvider] ${current ? '✏️ Updating' : '✅ Adding'} state for ${clientId}:`, state.user?.name);
+                        }
                         this.awareness.states.set(clientId, state);
                         this.awareness.emit('change', [{
                             added: current ? [] : [clientId],
                             updated: current ? [clientId] : [],
                             removed: []
                         }, 'remote']);
-                    } else {
+                    } else if (this.debug) {
                         console.log(`[NostrAwarenessProvider] ⏩ State unchanged for ${clientId}`);
                     }
                 }
@@ -246,17 +265,19 @@ export class NostrAwarenessProvider {
      */
     private bindAwarenessUpdates() {
         this.awareness.on('change', ({ added, updated, removed }: any, origin: unknown) => {
-            console.log('[NostrAwarenessProvider] 🔔 Awareness change:', {
-                added,
-                updated,
-                removed,
-                origin,
-                myClientId: this.awareness.clientID
-            });
+            if (this.debug) {
+                console.log('[NostrAwarenessProvider] 🔔 Awareness change:', {
+                    added,
+                    updated,
+                    removed,
+                    origin,
+                    myClientId: this.awareness.clientID
+                });
+            }
 
             // wenn die Änderung von nostr kam, ignorieren
             if (origin === 'remote') {
-                console.log('[NostrAwarenessProvider] ⏩ Skipping remote change');
+                if (this.debug) console.log('[NostrAwarenessProvider] ⏩ Skipping remote change');
                 return;
             }
 
@@ -265,9 +286,9 @@ export class NostrAwarenessProvider {
 
             // wenn der eigene ClientId in den Änderungen ist, Zustand veröffentlichen
             if (added.includes(myClientId) || updated.includes(myClientId) || removed.includes(myClientId)) {
-                console.log('[NostrAwarenessProvider] 📤 Publishing my state...');
+                if (this.debug) console.log('[NostrAwarenessProvider] 📤 Publishing my state...');
                 this.publishMyState();
-            } else {
+            } else if (this.debug) {
                 console.log('[NostrAwarenessProvider] ⏩ Change does not affect my clientId');
             }
         });
@@ -275,16 +296,18 @@ export class NostrAwarenessProvider {
 
     private publishMyState() {
         const state = this.awareness.getLocalState();
-        console.log('[NostrAwarenessProvider] 📡 publishMyState called:', {
-            clientId: this.awareness.clientID,
-            state: state ? { user: state.user?.name } : null
-        });
+        if (this.debug) {
+            console.log('[NostrAwarenessProvider] 📡 publishMyState called:', {
+                clientId: this.awareness.clientID,
+                state: state ? { user: state.user?.name } : null
+            });
+        }
 
         // if (!state) return; // Allow null state to signal offline
 
         const stateStr = JSON.stringify(state);
         if (stateStr === this.lastSentState) {
-            console.log('[NostrAwarenessProvider] ⏩ State unchanged, not publishing');
+            if (this.debug) console.log('[NostrAwarenessProvider] ⏩ State unchanged, not publishing');
             return;
         }
 
@@ -303,10 +326,10 @@ export class NostrAwarenessProvider {
             created_at: Math.floor(Date.now() / 1000),
         };
 
-        console.log('[NostrAwarenessProvider] 🔐 Signing and publishing awareness event...');
+        if (this.debug) console.log('[NostrAwarenessProvider] 🔐 Signing and publishing awareness event...');
         this.signAndPublish(event)
             .then(() => {
-                console.log('[NostrAwarenessProvider] ✅ Awareness event published');
+                if (this.debug) console.log('[NostrAwarenessProvider] ✅ Awareness event published');
             })
             .catch(e => {
                 console.error('[NostrAwarenessProvider] ❌ Failed to publish state:', e);
@@ -321,12 +344,16 @@ export class NostrAwarenessProvider {
             const myClientId = this.awareness.clientID;
             
             if (myUsername) {
-                console.log(`[NostrAwarenessProvider] 🧹 Cleaning up old states for ${myUsername} (keeping ${myClientId})`);
+                if (this.debug) {
+                    console.log(`[NostrAwarenessProvider] 🧹 Cleaning up old states for ${myUsername} (keeping ${myClientId})`);
+                }
                 const statesToRemove: number[] = [];
                 
                 this.awareness.getStates().forEach((state: any, clientId: number) => {
                     if (clientId !== myClientId && state?.user?.name === myUsername) {
-                        console.log(`[NostrAwarenessProvider] 🗑️ Removing stale state for ${myUsername} with clientId ${clientId}`);
+                        if (this.debug) {
+                            console.log(`[NostrAwarenessProvider] 🗑️ Removing stale state for ${myUsername} with clientId ${clientId}`);
+                        }
                         statesToRemove.push(clientId);
                     }
                 });
@@ -351,7 +378,7 @@ export class NostrAwarenessProvider {
         this.heartbeatInterval = setInterval(() => {
             const state = this.awareness.getLocalState();
             if (state) {
-                console.log('[NostrAwarenessProvider] 💓 Heartbeat: sending awareness update');
+                if (this.debug) console.log('[NostrAwarenessProvider] 💓 Heartbeat: sending awareness update');
                 // Force publish by clearing lastSentState
                 const lastState = this.lastSentState;
                 this.lastSentState = null;
@@ -373,7 +400,9 @@ export class NostrAwarenessProvider {
                 
                 const lastSeen = this.lastSeenTimestamp.get(clientId);
                 if (lastSeen && (now - lastSeen > staleTimeout)) {
-                    console.log(`[NostrAwarenessProvider] ⏰ Removing stale user with clientId ${clientId} (last seen ${Math.round((now - lastSeen) / 1000)}s ago)`);
+                    if (this.debug) {
+                        console.log(`[NostrAwarenessProvider] ⏰ Removing stale user with clientId ${clientId} (last seen ${Math.round((now - lastSeen) / 1000)}s ago)`);
+                    }
                     statesToRemove.push(clientId);
                     this.lastSeenTimestamp.delete(clientId);
                 }

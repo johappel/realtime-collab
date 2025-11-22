@@ -36,7 +36,6 @@ export function useWikiYDoc(
     let persistence: any;
 
     if ((mode === 'nostr' || mode === 'group') && myPubkey && signAndPublish) {
-        console.log("[useWikiYDoc] Initializing Nostr/Group mode");
         // In group mode, use user.name as identifier to ensure unique clientID per user
         const userIdentifier = mode === 'group' ? user.name : undefined;
         const isGroupMode = mode === 'group';
@@ -48,7 +47,6 @@ export function useWikiYDoc(
         awareness = result.awareness;
         persistence = result.persistence;
     } else {
-        console.log("[useWikiYDoc] Initializing Local mode (fallback or requested)");
         const result = useLocalYDoc(documentId);
         ydoc = result.ydoc;
         awareness = result.awareness;

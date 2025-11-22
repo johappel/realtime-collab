@@ -19,7 +19,6 @@ class AppState {
         // Load initial state from localStorage if available
         if (typeof localStorage !== 'undefined') {
             const storedMode = localStorage.getItem('app_mode');
-            console.log('[AppState Constructor] Stored mode:', storedMode);
 
             if (storedMode === 'nostr' || storedMode === 'local' || storedMode === 'group') {
                 this.mode = storedMode as 'local' | 'nostr' | 'group';
@@ -28,7 +27,6 @@ class AppState {
             // Restore group code if in group mode
             if (this.mode === 'group') {
                 this.groupCode = localStorage.getItem('app_group_code');
-                console.log('[AppState Constructor] Restored groupCode:', this.groupCode);
                 
                 // CRITICAL: Initialize group mode immediately to restore user identity
                 // This ensures user.name and user.color are set BEFORE apps initialize
@@ -64,11 +62,8 @@ class AppState {
         const config = await loadConfig();
         this.relays = config.docRelays;
 
-        console.log('[AppState init] Mode:', this.mode, 'Already initialized:', this.isInitialized);
-
         // If already initializing (from constructor), wait for it
         if (this.initPromise) {
-            console.log('[AppState init] Waiting for existing init promise...');
             await this.initPromise;
             return;
         }
@@ -76,7 +71,6 @@ class AppState {
         if (this.mode === 'nostr') {
             await this.initNostr();
         } else if (this.mode === 'group') {
-            console.log('[AppState init] Calling initGroup...');
             this.initPromise = this.initGroup();
             await this.initPromise;
         }
@@ -104,8 +98,6 @@ class AppState {
 
     async initGroup() {
         try {
-            console.log('[initGroup] Starting, groupCode:', this.groupCode);
-
             if (!this.groupCode) {
                 console.warn("[initGroup] Group code not set");
                 return;
@@ -113,12 +105,10 @@ class AppState {
 
             // Generate private key from code
             this.groupPrivateKey = await generateKeyFromCode(this.groupCode);
-            console.log('[initGroup] Generated groupPrivateKey:', this.groupPrivateKey ? 'YES' : 'NO');
 
             // Get public key
             const pubkey = getPubkeyFromPrivateKey(this.groupPrivateKey);
             this.user.pubkey = pubkey;
-            console.log('[initGroup] Generated pubkey:', pubkey);
 
             // Get nickname from localStorage or generate unique default
             let nickname = getOrSetLocalIdentity();
@@ -128,9 +118,6 @@ class AppState {
                 const randomId = Math.random().toString(36).substring(2, 8);
                 nickname = `User-${randomId}`;
                 getOrSetLocalIdentity(nickname); // Save it for consistency
-                console.log('[initGroup] Generated new random nickname:', nickname);
-            } else {
-                console.log('[initGroup] Restored existing nickname from localStorage:', nickname);
             }
             this.user.name = nickname;
             
@@ -138,7 +125,6 @@ class AppState {
             // In group mode, all users share the same pubkey, so we need
             // unique colors per user based on their individual nickname.
             this.user.color = getRandomColor(this.user.name);
-            console.log('[initGroup] ✅ Group initialized - User:', this.user.name, 'Color:', this.user.color, 'Pubkey:', pubkey.substring(0, 8) + '...');
         } catch (e) {
             console.error("[initGroup] ❌ Failed to init Group mode:", e);
         }
