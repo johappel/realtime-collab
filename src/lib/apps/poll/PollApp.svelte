@@ -10,6 +10,7 @@
     import { getNip07Pubkey, signAndPublishNip07 } from "$lib/nostrUtils";
     import { theme } from "$lib/stores/theme.svelte";
     import * as Y from "yjs";
+    import MarkdownText from "./MarkdownText.svelte";
 
     let {
         documentId,
@@ -274,12 +275,13 @@
 
                     <div class="grow min-w-0">
                         <div class="flex justify-between items-baseline mb-1">
-                            <span
-                                class="font-medium text-gray-900 dark:text-white truncate"
-                                >{option.text}</span
+                            <div
+                                class="font-medium text-gray-900 dark:text-white overflow-wrap-break-word"
                             >
+                                <MarkdownText text={option.text} />
+                            </div>
                             <span
-                                class="text-sm text-gray-500 dark:text-gray-400 font-mono"
+                                class="text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap ml-3"
                                 >{option.votes.length} ({percentage}%)</span
                             >
                         </div>
@@ -328,21 +330,26 @@
 
     <!-- Add Option -->
     {#if $settings.allowUserOptions || $options.length < 2}
-        <div class="mt-6 flex gap-2">
-            <input
-                type="text"
-                bind:value={newOptionText}
-                onkeydown={(e) => e.key === "Enter" && handleAddOption()}
-                placeholder="Neue Option hinzufügen..."
-                class="grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-            <button
-                onclick={handleAddOption}
-                disabled={!newOptionText.trim()}
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-                Hinzufügen
-            </button>
+        <div class="mt-6">
+            <div class="flex gap-2">
+                <input
+                    type="text"
+                    bind:value={newOptionText}
+                    onkeydown={(e) => e.key === "Enter" && handleAddOption()}
+                    placeholder="Neue Option hinzufügen..."
+                    class="grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <button
+                    onclick={handleAddOption}
+                    disabled={!newOptionText.trim()}
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    Hinzufügen
+                </button>
+            </div>
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Tipp: URLs werden automatisch verlinkt. Markdown-Formatierung: **fett**, *kursiv*, `code`, ~~durchgestrichen~~
+            </div>
         </div>
     {/if}
 </div>
