@@ -48,7 +48,7 @@
                 onchange={(e) => pollApp?.updateSettings({ multiSelect: e.currentTarget.checked })}
                 class="rounded text-blue-600 focus:ring-blue-500"
             />
-            Multi-Select
+            Mehrfachauswahl
         </label>
         
         <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-gray-300 whitespace-nowrap">
@@ -58,7 +58,7 @@
                 onchange={(e) => pollApp?.updateSettings({ anonymous: e.currentTarget.checked })}
                 class="rounded text-blue-600 focus:ring-blue-500"
             />
-            Anonymous
+            Anonym
         </label>
 
         <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-gray-300 whitespace-nowrap">
@@ -68,16 +68,20 @@
                 onchange={(e) => pollApp?.updateSettings({ allowUserOptions: e.currentTarget.checked })}
                 class="rounded text-blue-600 focus:ring-blue-500"
             />
-            User Options
+            Eigene Optionen
         </label>
 
         <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
 
         <button 
-            onclick={() => pollApp?.resetVotes()}
+            onclick={() => {
+                if (confirm('Möchten Sie wirklich alle Stimmen zurücksetzen?')) {
+                    pollApp?.resetVotes();
+                }
+            }}
             class="px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-900/30 rounded text-xs font-medium transition-colors whitespace-nowrap"
         >
-            Reset Votes
+            Stimmen zurücksetzen
         </button>
     </div>
 {/snippet}
