@@ -8,8 +8,23 @@ Das Ziel ist eine Suite von "Local-First" Kollaborations-Tools, die:
 1.  **Offline-fähig** sind (Local-First).
 2.  **Echtzeit-fähig** sind (via Nostr-Relays).
 3.  **Daten-agnostisch** sind (Yjs als universeller State-Container).
+4.  **Flexibel authentifizierbar** sind (Personal via NIP-07, Group Mode via Shared Key).
 
 Anstatt für jede App ein eigenes Backend zu bauen, nutzen alle Apps denselben Stack: **Svelte 5 + Yjs + Nostr**.
+
+### 1.1 Modi der Authentifizierung
+
+Die Plattform unterstützt drei Modi:
+- **Local Mode:** Nur lokale Persistierung (IndexedDB), keine Synchronisation.
+- **Nostr Mode:** NIP-07 Browser Extension für persönliche Identität, jeder User hat eigenen Private Key.
+- **Group Mode:** Deterministischer Shared Key aus Group Code, mehrere User teilen sich denselben Pubkey, aber unterschiedliche Nicknames und Client IDs.
+
+**Wichtig für Group Mode:**
+- Alle Gruppenmitglieder generieren denselben Private Key aus dem Group Code
+- Jeder User hat einen eindeutigen Nickname (aus localStorage)
+- Jeder User hat eine eindeutige Client ID: `yjs_clientId_${documentId}_${nickname}`
+- Farben werden vom Nickname abgeleitet, NICHT vom Pubkey
+- Ghost Killer trackt User nach Username (Group) oder Pubkey (Normal)
 
 ## 2. Gemeinsame Basis (Shared Kernel)
 
@@ -24,21 +39,92 @@ Jedes Dokument ist ein `Y.Doc`. Der Unterschied liegt nur darin, welche Yjs-Date
 ### 2.2 Transport & Networking (Nostr)
 Die Synchronisation erfolgt über `NostrYDocProvider`.
 *   **Events:** Updates werden als binäre Yjs-Updates (Base64) in Nostr-Events (Kind `9337`) verpackt.
-*   **Awareness:** Cursor-Positionen und Online-Status laufen über Ephemeral Events (Kind `20000`+ / `31339`).
-*   **Signierung:** Erfolgt zentral über NIP-07 (Browser-Extension) oder lokale Keys.
+*   **Awareness:** Cursor-Positionen und Online-Status laufen über Replaceable Events (Kind `31339`).
+*   **Signierung:** Erfolgt über NIP-07 (Browser-Extension), Group Mode (Shared Key) oder lokale Keys.
+
+### 2.2.1 App-Isolation (KRITISCH!)
+
+**Problem:** Wenn mehrere Apps denselben `documentId` (z.B. "demo") nutzen, teilen sie sich Awareness States und Yjs-Updates, was zu Cross-Contamination führt (User aus dem Poll erscheinen im Editor, etc.).
+
+**Lösung:** Jede App MUSS ihren `documentId` mit einem App-Präfix versehen:
+
+```typescript
+// ❌ FALSCH - Alle Apps nutzen denselben documentId
+const result = useNostrYDoc(documentId, ...);
+
+// ✅ RICHTIG - Jede App hat isolierten documentId
+const appDocumentId = `poll:${documentId}`;
+const result = useNostrYDoc(appDocumentId, ...);
+```
+
+**Standard-Präfixe:**
+- Editor: `editor:${documentId}`
+- Poll: `poll:${documentId}`
+- Todo: `todo:${documentId}`
+- Mindmap: `mindmap:${documentId}`
+- Whiteboard: `whiteboard:${documentId}`
+- Wiki: `wiki:${documentId}`
+
+**Validierung:** Der `NostrAwarenessProvider` prüft die `d`-Tag im Event und ignoriert Events für andere documentIds:
+```typescript
+if (dTag !== this.documentId) {
+    // Event gehört zu anderer App/Dokument - ignorieren
+    return;
+}
+```
 
 ### 2.3 Hooks & Provider Pattern
 Jede App implementiert einen spezifischen Hook, der den generischen `useNostrYDoc` Hook wrappt:
 
 ```typescript
 // Generischer Base-Hook
-useNostrYDoc(docId, ...) -> { ydoc, provider, awareness }
+useNostrYDoc(
+    documentId: string,
+    myPubkey: string,
+    signAndPublish: Function,
+    enablePersistence: boolean,
+    relays: string[],
+    userIdentifier?: string,  // Für Group Mode: Nickname
+    isGroupMode?: boolean     // Aktiviert Group Mode Features
+) -> { ydoc, provider, awareness }
 
-// App-Spezifischer Hook (Beispiel)
-useTodoYDoc(docId, ...) -> { 
+// App-Spezifischer Hook (Beispiel mit Group Mode Support)
+useTodoYDoc(docId, mode, user, ...) -> { 
     items: Writable<TodoItem[]>, // Svelte Store für UI
     addItem: (text) => void,     // High-Level Action
     ... 
+}
+```
+
+**Pattern für neue Apps (Group Mode Support):**
+```typescript
+export function useMyAppYDoc(
+    documentId: string,
+    mode: 'local' | 'nostr' | 'group',
+    user: { name: string; color: string; pubkey: string },
+    signAndPublish?: Function,
+    relays?: string[]
+) {
+    // 1. App-Präfix für Isolation
+    const appDocumentId = `myapp:${documentId}`;
+    
+    // 2. Group Mode Detection
+    const isGroupMode = mode === 'group';
+    const userIdentifier = user.name; // Nickname als Identifier
+    
+    // 3. useNostrYDoc mit allen Parametern
+    if (mode === 'nostr' || mode === 'group') {
+        const result = useNostrYDoc(
+            appDocumentId,
+            user.pubkey,
+            signAndPublish,
+            false,
+            relays,
+            userIdentifier,
+            isGroupMode
+        );
+        // ...
+    }
 }
 ```
 
@@ -74,7 +160,84 @@ Jedes Dokument speichert Metadaten (wie den Titel) in einer `Y.Map('metadata')`.
     *   Reihenfolge in einem `Y.Array` (für Sortierung).
 *   **Logik:** `useTodoYDoc.ts` bietet Funktionen wie `assignUser`, `setDueDate`, `reorderItems`.
 
-## 4. Offene Punkte & Anpassungsbedarf
+## 4. State Management & Awareness
+
+### 4.1 Client ID Management
+
+**Problem:** In Group Mode teilen sich alle User denselben Pubkey. Ohne eindeutige Client IDs überschreiben sie gegenseitig ihre Zustände.
+
+**Lösung:** Client IDs werden pro User + Dokument + Nickname gespeichert:
+
+```typescript
+// localStorage Key Pattern
+const key = `yjs_clientId_${documentId}_${user.name}`;
+
+// Beispiel
+// Max in poll:demo -> yjs_clientId_poll:demo_Max
+// Lu in poll:demo  -> yjs_clientId_poll:demo_Lu
+// Max in editor:demo -> yjs_clientId_editor:demo_Max (ANDERER Key!)
+```
+
+**Wichtig:**
+- SessionStorage wird für Normal Mode genutzt (Single Tab pro User)
+- LocalStorage wird für Group Mode genutzt (Multi-Tab, Nickname-basiert)
+- Bei App-Wechsel (poll → editor) erhält derselbe User eine NEUE Client ID
+
+### 4.2 Awareness State Lifecycle
+
+**Heartbeat (15s):**
+- Jeder User sendet alle 15 Sekunden seinen Awareness State
+- Verhindert Timeout und hält Presence aktuell
+
+**Stale User Cleanup (40s timeout, 10s check):**
+- User, die 40 Sekunden keine Updates senden, werden entfernt
+- Verhindert "Ghost Users" nach Browser-Crash oder Tab-Close
+
+**Ghost Killer:**
+- Normal Mode: Trackt nach Pubkey (ein User = ein clientId)
+- Group Mode: Trackt nach Username (mehrere User mit gleichem Pubkey)
+- Bei Reload: Alte Client IDs mit demselben Username/Pubkey werden entfernt
+
+**Delayed Cleanup Pattern:**
+```typescript
+// FALSCH: Cleanup vor Subscription
+this.cleanupMyOldStates();
+this.subscribe();
+
+// RICHTIG: Cleanup NACH historischen Events
+this.subscribe();
+setTimeout(() => this.cleanupMyOldStates(), 1000);
+```
+
+### 4.3 Event Filtering
+
+**Document Validation:**
+```typescript
+const dTag = event.tags.find(t => t[0] === 'd')?.[1];
+if (dTag !== this.documentId) {
+    // Ignoriere Events für andere Apps/Dokumente
+    return;
+}
+```
+
+**Age Filtering:**
+```typescript
+const now = Math.floor(Date.now() / 1000);
+if (event.created_at < now - 30) {
+    // Ignoriere Events älter als 30 Sekunden
+    return;
+}
+```
+
+**Client ID Check:**
+```typescript
+if (clientId === this.awareness.clientID) {
+    // Ignoriere eigene Echo-Events
+    return;
+}
+```
+
+## 5. Offene Punkte & Anpassungsbedarf
 
 ### 4.1 Routing & App-Erkennung (Wichtig!)
 Aktuell ist das Routing (`/editor/[documentId]`) noch stark auf den Text-Editor fokussiert.
@@ -96,15 +259,63 @@ Es fehlt eine Startseite (`/`), auf der man:
 *   Neue Dokumente erstellen kann (Wahl des Typs).
 *   Zuletzt bearbeitete Dokumente sieht (aus dem LocalStorage oder via Nostr-Query).
 
-## 5. Zusammenfassung für Entwickler
+## 6. Zusammenfassung für Entwickler
 
-*   **Neue App erstellen:**
-    1.  Erstelle `src/lib/apps/neue-app/`.
-    2.  Schreibe `useNeueAppYDoc.ts`: Wrappe `useNostrYDoc`, definiere Yjs-Typen, exportiere Svelte-Stores.
-    3.  Baue `NeueApp.svelte`: Nutze nur die Stores/Actions aus dem Hook.
-*   **Bestehende Apps erweitern:**
-    *   Ändere zuerst das Datenmodell im Hook (`use...YDoc.ts`).
-    *   Passe dann die UI an.
-*   **Infrastruktur ändern:**
-    *   Änderungen an `NostrYDocProvider` betreffen **alle** Apps. Vorsicht!
+### 6.1 Neue App erstellen - Checkliste
+
+**1. Ordnerstruktur:**
+```
+src/lib/apps/neue-app/
+├── NeueApp.svelte
+└── useNeueAppYDoc.ts
+
+src/routes/neue-app/[documentId]/
+└── +page.svelte
+```
+
+**2. Hook implementieren (`useNeueAppYDoc.ts`):**
+- [ ] Import `useNostrYDoc` und `useLocalYDoc`
+- [ ] **KRITISCH:** App-Präfix für documentId: `const appDocumentId = \`neueapp:${documentId}\``
+- [ ] Group Mode Support: `isGroupMode = mode === 'group'`
+- [ ] User Identifier: `userIdentifier = user.name`
+- [ ] Alle 7 Parameter an `useNostrYDoc` übergeben
+- [ ] Yjs-Datentypen definieren (Y.Map, Y.Array, Y.Text, etc.)
+- [ ] Svelte Stores für UI erstellen
+- [ ] ObserveDeep für Sync Yjs → Stores
+- [ ] Actions für Mutations Stores → Yjs (in `ydoc.transact`)
+- [ ] Cleanup-Funktion implementieren
+
+**3. UI-Komponente (`NeueApp.svelte`):**
+- [ ] Props: `documentId`, `user`, `mode`, `title` (bindable), `awareness` (bindable)
+- [ ] `onMount`: Hook initialisieren
+- [ ] `onMount`: Cleanup-Funktion returnen
+- [ ] Titel-Sync mit `ydoc.getMap('metadata')`
+- [ ] `$effect` für Titel-Updates
+- [ ] `{#key appState.mode}` für Mode-Switching
+
+**4. Route (`+page.svelte`):**
+- [ ] `AppHeader` mit `bind:documentId` und `bind:awareness`
+- [ ] `appState.init()` in `onMount`
+- [ ] Mode aus `appState.mode`, NICHT aus URL
+- [ ] `{#key appState.mode}` für Re-Mount bei Mode-Wechsel
+
+**5. Testing:**
+- [ ] Local Mode: Funktioniert offline?
+- [ ] Normal Mode: NIP-07 Extension funktioniert?
+- [ ] Group Mode: Multiple Users mit gleichem Code?
+- [ ] App-Isolation: Andere Apps zeigen keine Cross-Contamination?
+- [ ] Titel-Sync: Funktioniert bidirektional?
+- [ ] Presence: User werden korrekt angezeigt?
+- [ ] Ghost Killer: Nach Reload keine Duplikate?
+
+### 6.2 Bestehende Apps erweitern
+
+*   Ändere zuerst das Datenmodell im Hook (`use...YDoc.ts`).
+*   Passe dann die UI an.
+*   Teste alle drei Modi (local, nostr, group).
+
+### 6.3 Infrastruktur ändern
+
+*   Änderungen an `NostrYDocProvider` oder `NostrAwarenessProvider` betreffen **alle** Apps. Vorsicht!
+*   Teste nach Infrastruktur-Änderungen ALLE Apps.
 

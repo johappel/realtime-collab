@@ -46,9 +46,8 @@ export interface UseMyAppResult {
 
 export function useMyAppYDoc(
     documentId: string,
-    mode: 'local' | 'nostr',
-    user: { name: string; color: string },
-    myPubkey?: string,
+    mode: 'local' | 'nostr' | 'group',  // ✅ Group Mode hinzugefügt
+    user: { name: string; color: string; pubkey: string },  // ✅ pubkey hinzugefügt
     signAndPublish?: (evt: any) => Promise<any>,
     relays?: string[]
 ): UseMyAppResult {
@@ -58,14 +57,30 @@ export function useMyAppYDoc(
     let persistence: any;
 
     // 1. Yjs initialisieren
-    if (mode === 'nostr' && myPubkey && signAndPublish) {
-        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays);
+    // ✅ KRITISCH: App-Präfix für Document-Isolation!
+    const appDocumentId = `myapp:${documentId}`;
+    
+    // ✅ Group Mode Support
+    const isGroupMode = mode === 'group';
+    const userIdentifier = user.name; // Nickname als Identifier
+    
+    if (mode === 'nostr' || mode === 'group') {
+        // ✅ Alle 7 Parameter übergeben!
+        const result = useNostrYDoc(
+            appDocumentId,        // 1. Mit App-Präfix!
+            user.pubkey,          // 2. Pubkey (auch für Group Mode)
+            signAndPublish!,      // 3. Sign-Funktion
+            false,                // 4. Persistence (meist false für Apps)
+            relays,               // 5. Relay-Liste
+            userIdentifier,       // 6. ✅ User Identifier (für Client ID)
+            isGroupMode           // 7. ✅ Group Mode Flag
+        );
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;
         persistence = result.persistence;
     } else {
-        const result = useLocalYDoc(documentId);
+        const result = useLocalYDoc(appDocumentId);  // ✅ Auch hier App-Präfix!
         ydoc = result.ydoc;
         awareness = result.awareness;
         persistence = result.persistence;
@@ -139,8 +154,8 @@ Die UI sollte "dumm" sein. Sie rendert nur Daten aus Stores und ruft Aktionen au
         awareness = $bindable(null)
     } = $props<{
         documentId: string;
-        user: { name: string; color: string };
-        mode?: 'local' | 'nostr';
+        user: { name: string; color: string; pubkey: string };  // ✅ pubkey hinzugefügt
+        mode?: 'local' | 'nostr' | 'group';  // ✅ Group Mode hinzugefügt
         title?: string;
         awareness?: any;
     }>();
@@ -153,25 +168,34 @@ Die UI sollte "dumm" sein. Sie rendert nur Daten aus Stores und ruft Aktionen au
         let cleanupFn: (() => void) | undefined;
 
         const init = async () => {
-            // 1. Nostr Setup (falls nötig)
-            let pubkey = '';
+            // 1. Nostr/Group Setup (falls nötig)
             let relays: string[] = [];
             let signAndPublish: any = null;
 
             // Nutze appState.mode um auf Header-Switches zu reagieren
-            if (mode === 'nostr') {
+            if (mode === 'nostr' || mode === 'group') {
                 try {
                     const config = await loadConfig();
                     relays = config.docRelays;
-                    pubkey = await getNip07Pubkey();
-                    signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
+                    
+                    if (mode === 'nostr') {
+                        // NIP-07 Browser Extension
+                        signAndPublish = (evt: any) => signAndPublishNip07(evt, relays);
+                    } else if (mode === 'group') {
+                        // Group Mode: Shared Key aus appState
+                        const { signWithPrivateKey } = await import('$lib/groupAuth');
+                        const privateKey = appState.groupPrivateKey;
+                        if (!privateKey) throw new Error('Group mode but no private key');
+                        signAndPublish = (evt: any) => signWithPrivateKey(evt, privateKey, relays);
+                    }
                 } catch (e) {
-                    console.error("Nostr init failed", e);
+                    console.error("Nostr/Group init failed", e);
                 }
             }
 
             // 2. Hook initialisieren
-            hook = useMyAppYDoc(documentId, mode, user, pubkey, signAndPublish, relays);
+            // ✅ user enthält bereits pubkey (aus appState)
+            hook = useMyAppYDoc(documentId, mode, user, signAndPublish, relays);
             
             // 3. Stores binden
             hook.items.subscribe(v => items = v);
@@ -282,10 +306,152 @@ Dies verbindet alles miteinander.
 
 ## 3. Häufige Fallstricke
 
+### 3.1 KRITISCH: App-Isolation
+
+**❌ FEHLER:**
+```typescript
+const result = useNostrYDoc(documentId, ...);  // Keine Isolation!
+```
+
+**✅ RICHTIG:**
+```typescript
+const appDocumentId = `myapp:${documentId}`;
+const result = useNostrYDoc(appDocumentId, ...);
+```
+
+**Warum?** Ohne App-Präfix teilen sich alle Apps denselben documentId (z.B. "demo"). Dies führt zu:
+- Cross-Contamination von Awareness States (User aus Poll erscheinen im Editor)
+- Durcheinander von Yjs-Updates (Todo-Items landen in der Mindmap)
+- Chaos in der Presence-Liste
+
+**Standard-Präfixe:**
+- `editor:` - Text Editor
+- `poll:` - Umfragen
+- `todo:` - Todo-Listen
+- `mindmap:` - Mindmaps
+- `whiteboard:` - Whiteboards
+- `wiki:` - Wiki-Seiten
+
+### 3.2 Group Mode Support
+
+**Checkliste für Group Mode:**
+- [ ] `mode` Type erweitert: `'local' | 'nostr' | 'group'`
+- [ ] `user.pubkey` in Props Interface
+- [ ] `isGroupMode = mode === 'group'` im Hook
+- [ ] `userIdentifier = user.name` übergeben
+- [ ] `signAndPublish` aus `groupAuth.ts` für Group Mode
+- [ ] Alle 7 Parameter an `useNostrYDoc` übergeben
+
+**Wichtig:** In Group Mode:
+- Alle User haben denselben Pubkey (aus Group Code)
+- Jeder User hat eindeutigen Nickname (aus localStorage)
+- Client IDs werden per Nickname unterschieden
+- Farben basieren auf Nickname, NICHT Pubkey
+
+### 3.3 Client ID Management
+
+**Automatisch gehandhabt durch `useNostrYDoc`:**
+```typescript
+// Normal Mode (sessionStorage)
+const key = `yjs_clientId_${documentId}`;
+
+// Group Mode (localStorage mit Nickname)
+const key = `yjs_clientId_${documentId}_${userIdentifier}`;
+```
+
+**Du musst nichts machen**, solange du `userIdentifier` korrekt übergibst!
+
+### 3.4 Weitere Fallstricke
+
 1.  **Async `onMount`:** Gib KEIN Promise von `onMount` zurück, wenn du eine Cleanup-Funktion benötigst. Svelte 5 (und 4) erwartet `void | () => void`. Wenn du `async () => { ... }` verwendest, wird ein Promise zurückgegeben. Definiere stattdessen eine `async` Funktion innerhalb und rufe sie auf, oder nutze `.then()`.
+
 2.  **AppHeader Props:** `AppHeader` benötigt die Props `showHistory` und `maxWidth`. Stelle sicher, dass du sie übergibst.
+
 3.  **Modus-Umschaltung:** Nutze `appState.mode`, um den App-Modus zu steuern. Der `AppHeader` aktualisiert `appState`, nicht die URL. Wenn du dich auf URL-Parameter verlässt, funktioniert der Header-Switch nicht. Nutze `{#key appState.mode}`, um die App neu zu mounten, wenn sich der Modus ändert.
-4.  **Nostr-Verbindungen:** Die `nostrUtils.ts` Bibliothek handhabt das Connection-Pooling (`getRelayConnection`). Erstelle keine manuellen WebSocket-Verbindungen und nutze `SimplePool` nicht direkt, wenn möglich, um Konflikte zu vermeiden.
+
+4.  **Nostr-Verbindungen:** Die `nostrUtils.ts` Bibliothek handhabt das Connection-Pooling (`getRelayConnection`). Erstelle NIEMALS manuelle WebSocket-Verbindungen oder `SimplePool` direkt, um Relay-Blocks durch zu viele parallele Verbindungen zu vermeiden.
+
 5.  **Fehlendes `untrack` beim Titel-Sync:** Svelte 5 Runes sind sehr empfindlich. Wenn du `title` innerhalb eines Effekts aktualisierst, der `title` liest, erhältst du eine Endlosschleife. Nutze `untrack` für das initiale Lesen.
+
 6.  **Yjs-Transaktionen:** Wrappe Datenänderungen immer in `ydoc.transact(() => { ... })`, um Atomizität und korrektes Event-Firing sicherzustellen.
+
 7.  **Cleanup:** Implementiere immer eine `cleanup`-Funktion in deinem Hook und rufe sie in `onDestroy` (oder der Rückgabefunktion von `onMount`) auf. Dies verhindert Speicherlecks und "Geister"-Verbindungen.
+
+8.  **Debug-Logs:** Nutze `this.debug` in Providern für verbose Logs. Standard: Nur Errors und Warnings.
+
+## 4. Quick Reference
+
+### 4.1 useNostrYDoc Parameter (alle 7!)
+
+```typescript
+useNostrYDoc(
+    documentId: string,        // 1. Mit App-Präfix! z.B. "poll:demo"
+    myPubkey: string,          // 2. User Pubkey (NIP-07 oder Group)
+    signAndPublish: Function,  // 3. Sign-Funktion (NIP-07 oder groupAuth)
+    enablePersistence: boolean,// 4. IndexedDB? (meist false für Apps)
+    relays?: string[],         // 5. Relay-Liste aus config
+    userIdentifier?: string,   // 6. user.name für unique Client ID
+    isGroupMode?: boolean      // 7. true wenn mode === 'group'
+)
+```
+
+### 4.2 Awareness Lifecycle
+
+- **Heartbeat:** 15 Sekunden (hält Presence aktiv)
+- **Stale Timeout:** 40 Sekunden (danach Cleanup)
+- **Cleanup Check:** 10 Sekunden Interval
+- **Age Filter:** Events älter als 30s werden ignoriert
+- **Historical Fetch:** Letzte 60s beim Subscribe
+
+### 4.3 Event Kinds
+
+- **9337:** Yjs Updates (Content = Base64 encoded binary)
+- **31339:** Awareness States (Replaceable, d-Tag = documentId)
+- **9338:** Yjs Snapshots (Optional, für History)
+- **31338:** Snapshot Metadata (Optional)
+
+### 4.4 Storage Keys
+
+```typescript
+// App Mode
+localStorage.getItem('app_mode'); // 'local' | 'nostr' | 'group'
+
+// Group Code
+localStorage.getItem('app_group_code'); // Group Code String
+
+// Nickname (Group Mode)
+localStorage.getItem('nostr_local_identity'); // User Nickname
+
+// Client ID (Normal Mode)
+sessionStorage.getItem(`yjs_clientId_${documentId}`);
+
+// Client ID (Group Mode)
+localStorage.getItem(`yjs_clientId_${documentId}_${nickname}`);
+```
+
+### 4.5 Wichtige Imports
+
+```typescript
+// Hooks
+import { useNostrYDoc } from '$lib/useNostrYDoc';
+import { useLocalYDoc } from '$lib/useLocalYDoc';
+
+// State
+import { appState } from '$lib/stores/appState.svelte';
+
+// Nostr Utils
+import { getNip07Pubkey, signAndPublishNip07 } from '$lib/nostrUtils';
+
+// Group Auth
+import { signWithPrivateKey } from '$lib/groupAuth';
+
+// Config
+import { loadConfig } from '$lib/config';
+
+// Yjs
+import * as Y from 'yjs';
+import { writable, type Writable } from 'svelte/store';
+
+// Svelte
+import { onMount, onDestroy, untrack } from 'svelte';
+```
