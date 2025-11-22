@@ -89,3 +89,51 @@ Der Editor unterstützt zwei Betriebsmodi, die oben rechts umgeschaltet werden k
     - Benötigt eine Browser-Extension (z. B. Alby, nos2x) zum Signieren.
     - Daten werden über Relays (Standard: `ws://localhost:7000`) ausgetauscht.
     - Zeigt aktive Benutzer (Presence) und deren Cursor an.
+
+---
+
+## 5. Whiteboard
+
+Das Whiteboard ist eine unendliche Zeichenfläche für visuelle Kollaboration. Es unterstützt verschiedene Werkzeuge und Interaktionsmöglichkeiten.
+
+### 5.1 Werkzeuge
+
+- **Hand (Pan):** Zum Verschieben der Ansicht. Klicken und ziehen Sie auf den leeren Hintergrund.
+- **Stift:** Zum freien Zeichnen. Farbe und Dicke sind einstellbar.
+- **Karte:** Erstellt eine farbige Notizkarte (Post-it). Doppelklick zum Bearbeiten des Textes.
+- **Rahmen:** Erstellt einen Container, um Elemente zu gruppieren. Elemente im Rahmen bewegen sich mit ihm.
+- **Bild:** Lädt ein Bild hoch (verschlüsselt via Blossom Server).
+- **Auswahl:** Zum Auswählen und Bearbeiten von Elementen.
+- **Figur:** Erstellt einen Avatar (Kopf + Körper) mit Ihrem Namen, um sich auf dem Board zu positionieren.
+
+### 5.2 Navigation & Ansicht
+
+- **Zoom:**
+  - Mausrad + `Ctrl` (oder im Hand/Auswahl-Modus einfach Mausrad).
+  - Buttons in der Toolbar (+ / - / Reset).
+  - **Fit to Content:** Passt die Ansicht so an, dass alle Elemente sichtbar sind.
+- **Pan (Verschieben):**
+  - Hand-Werkzeug nutzen.
+  - Oder `Shift` gedrückt halten und ziehen (funktioniert mit jedem Werkzeug).
+
+### 5.3 Bearbeitung & Shortcuts
+
+- **Mehrfachauswahl:**
+  - Auswahl-Werkzeug: Rahmen aufziehen.
+  - `Shift` + Klick auf Elemente, um sie zur Auswahl hinzuzufügen/zu entfernen.
+- **Verschieben:**
+  - Ausgewählte Elemente können gemeinsam verschoben werden.
+- **Clipboard:**
+  - `Ctrl + C`: Kopieren
+  - `Ctrl + V`: Einfügen
+  - `Ctrl + D`: Duplizieren
+- **Löschen:**
+  - `Entf` oder `Backspace` Taste.
+  - Löschen-Button in der Toolbar.
+
+### 5.4 Figuren
+
+Mit dem Figur-Werkzeug können Sie sich auf dem Board repräsentieren.
+- Die Figur übernimmt automatisch Ihre Farbe und Ihren Namen.
+- Der Name unter der Figur kann durch Anklicken und Tippen geändert werden.
+

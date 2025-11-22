@@ -4,6 +4,23 @@
 
 ### Status: Gruppen-Code Feature in Entwicklung 🚧
 
+### ✅ Whiteboard Features (22.11.2025)
+- **Navigation & Zoom**:
+  - Stufenloser Zoom (Mausrad, Buttons).
+  - Panning (Hand-Tool, Shift+Drag).
+  - "Fit to Content" Funktion (Auto-Fit beim Laden).
+  - 1:1 Pixel-Mapping für scharfe Darstellung.
+- **Erweiterte Interaktion**:
+  - Multi-Selection (Rahmen aufziehen, Shift+Klick).
+  - Multi-Move (Verschieben ganzer Gruppen).
+  - Clipboard-Support (Copy, Paste, Duplicate).
+  - Tastatur-Shortcuts (Ctrl+C/V/D, Del).
+- **Neue Entity: Figur**:
+  - Avatar-Element (Kopf + Körper) zur Positionierung von Nutzern.
+  - Editierbares Namensschild.
+  - Automatische Übernahme von User-Farbe und Name.
+  - Voll integriert in Yjs-Sync und Undo/Redo.
+
 ## Abgeschlossene Meilensteine
 
 ### ✅ Phase 0: Projekt-Setup
