@@ -125,8 +125,10 @@
           // In group mode, use editorUser.name as identifier to ensure unique clientID per user
           const userIdentifier = mode === "group" ? editorUser.name : undefined;
           const isGroupMode = mode === "group";
+          // Prefix documentId with app type to separate awareness between apps
+          const appDocumentId = `editor:${documentId}`;
           const result = useNostrYDoc(
-            documentId,
+            appDocumentId,
             pubkey,
             signAndPublish,
             false,

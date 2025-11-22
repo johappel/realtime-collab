@@ -42,6 +42,8 @@ export class NostrAwarenessProvider {
     private pubkeyToClientId: Map<string, number> = new Map();
     private usernameToClientId: Map<string, number> = new Map(); // For group mode
     private heartbeatInterval: any = null;
+    private cleanupInterval: any = null;
+    private lastSeenTimestamp: Map<number, number> = new Map(); // clientId → timestamp
 
     constructor(opts: NostrAwarenessProviderOptions) {
         this.awareness = opts.awareness;
@@ -52,9 +54,22 @@ export class NostrAwarenessProvider {
         this.debug = opts.debug ?? false;
         this.isGroupMode = opts.isGroupMode ?? false;
 
+        console.log(`[NostrAwarenessProvider] 🆕 Created provider for document: "${this.documentId}"`);
+
+        // Clean up any stale states for my user BEFORE subscribing
+        this.cleanupMyOldStates();
+        
         this.subscribe();
         this.bindAwarenessUpdates();
+        
+        // Publish my state immediately after subscription
+        setTimeout(() => {
+            console.log('[NostrAwarenessProvider] 🚀 Initial state publish');
+            this.publishMyState();
+        }, 500);
+        
         this.startHeartbeat();
+        this.startStaleUserCleanup();
     }
     /**
      * Subscribes to Nostr relays to receive awareness updates
@@ -92,15 +107,19 @@ export class NostrAwarenessProvider {
      */
     private handleEvent(event: Event) {
         try {
+            // CRITICAL: Verify this event is for OUR document
+            const dTag = event.tags.find(t => t[0] === 'd')?.[1];
+            if (dTag !== this.documentId) {
+                console.log(`[NostrAwarenessProvider] ⏩ Ignoring event for different document: ${dTag} (ours: ${this.documentId})`);
+                return;
+            }
+
             console.log('[NostrAwarenessProvider] 📥 Received event:', {
                 pubkey: event.pubkey.substring(0, 16) + '...',
-                myPubkey: this.myPubkey.substring(0, 16) + '...',
-                isMyPubkey: event.pubkey === this.myPubkey,
+                documentId: dTag,
                 isGroupMode: this.isGroupMode,
                 created_at: event.created_at
             });
-
-            // if (event.pubkey === this.myPubkey) return; // Don't filter by pubkey to allow multi-tab testing with same account
 
             // Ignore events older than 30 seconds to prevent "ghost" users from previous sessions
             const now = Math.floor(Date.now() / 1000);
@@ -198,6 +217,10 @@ export class NostrAwarenessProvider {
                 } else {
                     // User updated state
                     const current = this.awareness.states.get(clientId);
+                    
+                    // Update last seen timestamp
+                    this.lastSeenTimestamp.set(clientId, Date.now());
+                    
                     if (JSON.stringify(current) !== JSON.stringify(state)) {
                         console.log(`[NostrAwarenessProvider] ${current ? '✏️ Updating' : '✅ Adding'} state for ${clientId}:`, state.user?.name);
                         this.awareness.states.set(clientId, state);
@@ -290,8 +313,41 @@ export class NostrAwarenessProvider {
             });
     }
 
+    private cleanupMyOldStates() {
+        // In group mode: Remove all awareness states with my username but different clientID
+        if (this.isGroupMode) {
+            const myState = this.awareness.getLocalState();
+            const myUsername = myState?.user?.name;
+            const myClientId = this.awareness.clientID;
+            
+            if (myUsername) {
+                console.log(`[NostrAwarenessProvider] 🧹 Cleaning up old states for ${myUsername} (keeping ${myClientId})`);
+                const statesToRemove: number[] = [];
+                
+                this.awareness.getStates().forEach((state: any, clientId: number) => {
+                    if (clientId !== myClientId && state?.user?.name === myUsername) {
+                        console.log(`[NostrAwarenessProvider] 🗑️ Removing stale state for ${myUsername} with clientId ${clientId}`);
+                        statesToRemove.push(clientId);
+                    }
+                });
+                
+                statesToRemove.forEach(clientId => {
+                    this.awareness.states.delete(clientId);
+                });
+                
+                if (statesToRemove.length > 0) {
+                    this.awareness.emit('change', [{
+                        added: [],
+                        updated: [],
+                        removed: statesToRemove
+                    }, 'local']);
+                }
+            }
+        }
+    }
+
     private startHeartbeat() {
-        // Send awareness state every 20 seconds to keep presence alive
+        // Send awareness state every 15 seconds to keep presence alive
         this.heartbeatInterval = setInterval(() => {
             const state = this.awareness.getLocalState();
             if (state) {
@@ -302,13 +358,48 @@ export class NostrAwarenessProvider {
                 this.publishMyState();
                 this.lastSentState = lastState; // Restore to avoid spam
             }
-        }, 20000); // 20 seconds
+        }, 15000); // 15 seconds
+    }
+
+    private startStaleUserCleanup() {
+        // Remove users that haven't sent updates in 40 seconds
+        this.cleanupInterval = setInterval(() => {
+            const now = Date.now();
+            const staleTimeout = 40000; // 40 seconds
+            const statesToRemove: number[] = [];
+            
+            this.awareness.getStates().forEach((_state: any, clientId: number) => {
+                if (clientId === this.awareness.clientID) return; // Don't remove self
+                
+                const lastSeen = this.lastSeenTimestamp.get(clientId);
+                if (lastSeen && (now - lastSeen > staleTimeout)) {
+                    console.log(`[NostrAwarenessProvider] ⏰ Removing stale user with clientId ${clientId} (last seen ${Math.round((now - lastSeen) / 1000)}s ago)`);
+                    statesToRemove.push(clientId);
+                    this.lastSeenTimestamp.delete(clientId);
+                }
+            });
+            
+            if (statesToRemove.length > 0) {
+                statesToRemove.forEach(clientId => {
+                    this.awareness.states.delete(clientId);
+                });
+                this.awareness.emit('change', [{
+                    added: [],
+                    updated: [],
+                    removed: statesToRemove
+                }, 'local']);
+            }
+        }, 10000); // Check every 10 seconds
     }
 
     destroy() {
         if (this.heartbeatInterval) {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
+        }
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
         }
         this.activeRelays.forEach(r => r.close());
         this.activeRelays = [];

@@ -49,7 +49,9 @@ export function usePollYDoc(
         // In group mode, use user.name as identifier to ensure unique clientID per user
         const userIdentifier = mode === 'group' ? user.name : undefined;
         const isGroupMode = mode === 'group';
-        const result = useNostrYDoc(documentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode);
+        // Prefix documentId with app type to separate awareness between apps
+        const appDocumentId = `poll:${documentId}`;
+        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;
