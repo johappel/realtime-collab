@@ -97,7 +97,15 @@
   - Awareness-basierte Unterscheidung der Nutzer im Editor
 - **URL-Parameter Support**: 
   - Auto-Login via `?code=KURS-A&name=Max`
+  - Auto-Login via `?code=KURS-A&name=Max`
   - Perfekt für QR-Codes und Director-Agent Integration
+
+### ✅ Erklärseite für Laien (22.11.2025)
+- Neue Route `/about` erstellt
+- Einfache Erklärung der Komponenten (Apps UI, Y-DOC, NOSTR, Blossom)
+- Datenschutz-Hinweise für Lernende
+- Technische Anforderungen (Relays, Kinds)
+
 
 ## Nächste Schritte (Optional - Phase 4)
 

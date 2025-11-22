@@ -27,6 +27,7 @@ Ein **Google Docs-ähnlicher Realtime-Editor** mit Svelte 5, TipTap, Yjs und Nos
   - Gruppen: 8-stelliger Code für vereinfachten Zugang
 - **URL-Parameter**: `?code=KURS-A&name=Max` für QR-Code-Onboarding
 - **Lokale Identität**: Nickname-Persistenz im Browser
+- **Erklärseite**: `/about` für Laien (Komponenten & Datenschutz)
 
 
 ## Installation

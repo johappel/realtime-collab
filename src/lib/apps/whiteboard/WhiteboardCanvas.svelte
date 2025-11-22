@@ -29,7 +29,7 @@
         documentId,
         user = { name: "Anon", color: "#ff0000" },
         mode = "local",
-        activeTool = $bindable("select"),
+        activeTool = $bindable("hand"),
         currentColor = $bindable("#000000"),
         currentWidth = $bindable(3),
         cardColor = $bindable("#fff9c4"),
@@ -39,7 +39,7 @@
         documentId: string;
         user?: { name: string; color: string };
         mode?: "local" | "nostr" | "group";
-        activeTool?: "pen" | "card" | "frame" | "select";
+        activeTool?: "hand" | "pen" | "card" | "frame" | "select";
         currentColor?: string;
         currentWidth?: number;
         cardColor?: string;
@@ -79,6 +79,38 @@
     let dragOffset = { x: 0, y: 0 };
     let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
     let editingCardId: string | null = $state(null);
+    
+    // Multi-Selection State
+    let isSelecting = $state(false);
+    let selectionBox = $state({ startX: 0, startY: 0, endX: 0, endY: 0 });
+    let selectedElementIds = $state(new Set<string>());
+    
+    // Trigger reactive updates when selection changes
+    let selectionVersion = $state(0);
+    
+    // Panning State
+    let isPanning = $state(false);
+    let panOffset = $state({ x: 0, y: 0 });
+    let panStart = { x: 0, y: 0, startOffsetX: 0, startOffsetY: 0 };
+    let isShiftPressed = $state(false);
+    
+    // Zoom State
+    let zoomLevel = $state(1); // 1 = 100%, 0.5 = 50%, 2 = 200%
+    const MIN_ZOOM = 0.1;
+    const MAX_ZOOM = 5;
+    const ZOOM_STEP = 0.1;
+    
+    // Canvas dimensions for viewBox (base size without zoom)
+    const BASE_CANVAS_WIDTH = 4000;
+    const BASE_CANVAS_HEIGHT = 3000;
+    
+    function updateSelectionVersion() {
+        selectionVersion++;
+    }
+    
+    // ViewBox für Panning und Zoom
+    // Zoom: Größerer viewBox = weiter rausgezoomt, kleinerer viewBox = reingezoomt
+    let viewBox = $derived(`${-panOffset.x} ${-panOffset.y} ${BASE_CANVAS_WIDTH / zoomLevel} ${BASE_CANVAS_HEIGHT / zoomLevel}`);
 
     const MAX_CARD_HEIGHT = 300;
 
@@ -126,7 +158,83 @@
         actions.clearBoard();
     }
 
+    export function deleteSelected() {
+        const cardIds = Array.from(selectedElementIds).filter(id => 
+            $cards.some(c => c.id === id)
+        );
+        const imageIds = Array.from(selectedElementIds).filter(id => 
+            $images.some(i => i.id === id)
+        );
+        const frameIds = Array.from(selectedElementIds).filter(id => 
+            $frames.some(f => f.id === id)
+        );
+        
+        actions.deleteMultiple(cardIds, imageIds, frameIds);
+        selectedElementIds.clear();
+        updateSelectionVersion();
+    }
+
+    export function getSelectedCount() {
+        // Force reactivity by accessing selectionVersion
+        selectionVersion;
+        return selectedElementIds.size;
+    }
+    
+    export function zoomIn() {
+        zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+    }
+    
+    export function zoomOut() {
+        zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+    }
+    
+    export function resetZoom() {
+        zoomLevel = 1;
+        panOffset = { x: 0, y: 0 };
+    }
+    
+    export function getZoomLevel() {
+        return Math.round(zoomLevel * 100);
+    }
+
     onMount(async () => {
+        // Keyboard listeners for Shift key
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') {
+                isShiftPressed = true;
+            }
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Shift') {
+                isShiftPressed = false;
+                // Stop panning if we were panning with shift
+                if (isPanning) {
+                    isPanning = false;
+                }
+            }
+        };
+        
+        // Mouse wheel listener for zoom
+        const handleWheel = (e: WheelEvent) => {
+            // Only zoom if Ctrl is pressed or if we're in hand/select tool
+            if (e.ctrlKey || activeTool === 'hand' || activeTool === 'select') {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
+            }
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        
+        // Add wheel listener to SVG element (will be set after mount)
+        const addWheelListener = () => {
+            if (svgElement) {
+                svgElement.addEventListener('wheel', handleWheel, { passive: false });
+            }
+        };
+        setTimeout(addWheelListener, 0);
+        
         let pubkey = "";
         let relays: string[] = [];
         let signAndPublish: any = null;
@@ -203,6 +311,7 @@
             addImage: result.addImage,
             updateImage: result.updateImage,
             deleteImage: result.deleteImage,
+            deleteMultiple: result.deleteMultiple,
             clearBoard: result.clearBoard,
             undo: result.undo,
         };
@@ -234,10 +343,15 @@
             }
         });
 
-        // Wrap cleanup to include unobserve
+        // Wrap cleanup to include unobserve, keyboard listeners, and wheel listener
         const originalCleanup = cleanup;
         cleanup = () => {
             metaMap.unobserve(handleMetaUpdate);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            if (svgElement) {
+                svgElement.removeEventListener('wheel', handleWheel);
+            }
             if (originalCleanup) originalCleanup();
         };
     });
@@ -288,33 +402,134 @@
             clientY = (e as MouseEvent).clientY;
         }
 
+        // Transform from screen coordinates to SVG coordinates (accounting for pan offset and zoom)
+        const viewBoxWidth = BASE_CANVAS_WIDTH / zoomLevel;
+        const viewBoxHeight = BASE_CANVAS_HEIGHT / zoomLevel;
+        const relX = (clientX - rect.left) / rect.width * viewBoxWidth;
+        const relY = (clientY - rect.top) / rect.height * viewBoxHeight;
+
         return {
-            x: clientX - rect.left,
-            y: clientY - rect.top,
+            x: relX - panOffset.x,
+            y: relY - panOffset.y,
         };
     }
 
-    function handleStart(e: MouseEvent | TouchEvent) {
-        if (activeTool === "select") return;
-        if (activeTool === "pen") e.preventDefault();
+    function checkElementInSelection(x: number, y: number, width: number, height: number): boolean {
+        const minX = Math.min(selectionBox.startX, selectionBox.endX);
+        const maxX = Math.max(selectionBox.startX, selectionBox.endX);
+        const minY = Math.min(selectionBox.startY, selectionBox.endY);
+        const maxY = Math.max(selectionBox.startY, selectionBox.endY);
 
+        // Check if element intersects with selection box
+        return !(x + width < minX || x > maxX || y + height < minY || y > maxY);
+    }
+
+    function updateSelection() {
+        const newSelection = new Set<string>();
+
+        $cards.forEach(card => {
+            if (checkElementInSelection(card.x, card.y, card.width, card.height)) {
+                newSelection.add(card.id);
+            }
+        });
+
+        $images.forEach(image => {
+            if (checkElementInSelection(image.x, image.y, image.width, image.height)) {
+                newSelection.add(image.id);
+            }
+        });
+
+        $frames.forEach(frame => {
+            if (checkElementInSelection(frame.x, frame.y, frame.width, frame.height)) {
+                newSelection.add(frame.id);
+            }
+        });
+
+        selectedElementIds = newSelection;
+        updateSelectionVersion();
+    }
+
+    function handleStart(e: MouseEvent | TouchEvent) {
         const { x, y } = getPoint(e);
+        
+        // Shift+Drag: Always enable panning (override current tool)
+        if (isShiftPressed) {
+            isPanning = true;
+            panStart = { 
+                x: e instanceof MouseEvent ? e.clientX : e.touches[0].clientX, 
+                y: e instanceof MouseEvent ? e.clientY : e.touches[0].clientY,
+                startOffsetX: panOffset.x,
+                startOffsetY: panOffset.y
+            };
+            return;
+        }
+        
+        // Hand Tool: Enable panning only on empty canvas (no element underneath)
+        // If an element is clicked, the specific element handlers will take over
+        if (activeTool === "hand") {
+            // This will be reached only if clicking on empty canvas
+            // (element handlers call stopPropagation)
+            isPanning = true;
+            panStart = { 
+                x: e instanceof MouseEvent ? e.clientX : e.touches[0].clientX, 
+                y: e instanceof MouseEvent ? e.clientY : e.touches[0].clientY,
+                startOffsetX: panOffset.x,
+                startOffsetY: panOffset.y
+            };
+            return;
+        }
+
+        if (activeTool === "select") {
+            // Clear existing selection and start new selection box
+            if (selectedElementIds.size > 0) {
+                selectedElementIds.clear();
+                updateSelectionVersion();
+            }
+            
+            isSelecting = true;
+            selectionBox = { startX: x, startY: y, endX: x, endY: y };
+            return;
+        }
+
+        if (activeTool === "pen") e.preventDefault();
 
         if (activeTool === "pen") {
             isDrawing = true;
             currentPathId = actions.startPath(x, y, currentColor, currentWidth);
         } else if (activeTool === "card") {
             actions.addCard(x - 100, y - 75, cardColor);
-            activeTool = "select";
+            activeTool = "hand";
         } else if (activeTool === "frame") {
             actions.addFrame(x, y);
-            activeTool = "select";
+            activeTool = "hand";
         }
     }
 
     function handleMove(e: MouseEvent | TouchEvent) {
         e.preventDefault();
         const { x, y } = getPoint(e);
+        
+        // Handle panning
+        if (isPanning) {
+            const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+            const clientY = e instanceof MouseEvent ? e.clientY : e.touches[0].clientY;
+            
+            const dx = clientX - panStart.x;
+            const dy = clientY - panStart.y;
+            
+            panOffset = {
+                x: panStart.startOffsetX + dx,
+                y: panStart.startOffsetY + dy
+            };
+            return;
+        }
+
+        if (isSelecting) {
+            selectionBox.endX = x;
+            selectionBox.endY = y;
+            updateSelection();
+            return;
+        }
 
         if (isDrawing && currentPathId) {
             actions.updatePath(currentPathId, x, y);
@@ -390,6 +605,12 @@
         if (isDrawing && currentPathId) {
             actions.endPath(currentPathId);
         }
+        if (isSelecting) {
+            isSelecting = false;
+        }
+        if (isPanning) {
+            isPanning = false;
+        }
         isDrawing = false;
         currentPathId = null;
         draggingCardId = null;
@@ -406,8 +627,20 @@
         e: MouseEvent | TouchEvent,
         card: WhiteboardCard,
     ) {
-        if (activeTool !== "select") return;
+        if (activeTool !== "select" && activeTool !== "hand") return;
         e.stopPropagation();
+        
+        // Auto-switch to select when dragging an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
+        
+        // Clear selection when clicking on an element
+        if (selectedElementIds.size > 0) {
+            selectedElementIds.clear();
+            updateSelectionVersion();
+        }
+        
         const { x, y } = getPoint(e);
         draggingCardId = card.id;
         dragOffset = { x: x - card.x, y: y - card.y };
@@ -418,8 +651,13 @@
         e: MouseEvent | TouchEvent,
         card: WhiteboardCard,
     ) {
-        if (activeTool !== "select") return;
+        if (activeTool !== "select" && activeTool !== "hand") return;
         e.stopPropagation();
+        
+        // Auto-switch to select when resizing an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
         const { x, y } = getPoint(e);
         resizingCardId = card.id;
         resizeStart = { x, y, width: card.width, height: card.height };
@@ -430,8 +668,20 @@
         e: MouseEvent | TouchEvent,
         frame: WhiteboardFrame,
     ) {
-        if (activeTool !== "select") return;
+        if (activeTool !== "select" && activeTool !== "hand") return;
         e.stopPropagation();
+        
+        // Auto-switch to select when dragging an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
+        
+        // Clear selection when clicking on an element
+        if (selectedElementIds.size > 0) {
+            selectedElementIds.clear();
+            updateSelectionVersion();
+        }
+        
         const { x, y } = getPoint(e);
         draggingFrameId = frame.id;
         dragOffset = { x: x - frame.x, y: y - frame.y };
@@ -469,8 +719,13 @@
         e: MouseEvent | TouchEvent,
         frame: WhiteboardFrame,
     ) {
-        if (activeTool !== "select") return;
+        if (activeTool !== "select" && activeTool !== "hand") return;
         e.stopPropagation();
+        
+        // Auto-switch to select when resizing an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
         const { x, y } = getPoint(e);
         resizingFrameId = frame.id;
         resizeStart = { x, y, width: frame.width, height: frame.height };
@@ -480,8 +735,20 @@
         e: MouseEvent | TouchEvent,
         image: WhiteboardImage,
     ) {
-        if (activeTool !== "select") return;
+        if (activeTool !== "select" && activeTool !== "hand") return;
         e.stopPropagation();
+        
+        // Auto-switch to select when dragging an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
+        
+        // Clear selection when clicking on an element
+        if (selectedElementIds.size > 0) {
+            selectedElementIds.clear();
+            updateSelectionVersion();
+        }
+        
         const { x, y } = getPoint(e);
         draggingImageId = image.id;
         dragOffset = { x: x - image.x, y: y - image.y };
@@ -492,8 +759,13 @@
         e: MouseEvent | TouchEvent,
         image: WhiteboardImage,
     ) {
-        if (activeTool !== "select") return;
+        if (activeTool !== "select" && activeTool !== "hand") return;
         e.stopPropagation();
+        
+        // Auto-switch to select when resizing an element from hand tool
+        if (activeTool === "hand") {
+            activeTool = "select";
+        }
         const { x, y } = getPoint(e);
         resizingImageId = image.id;
         resizeStart = { x, y, width: image.width, height: image.height };
@@ -589,7 +861,7 @@
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        class="flex-1 relative overflow-hidden cursor-crosshair touch-none bg-gray-100 dark:bg-gray-900 outline-none"
+        class="flex-1 relative overflow-hidden touch-none bg-gray-100 dark:bg-gray-900 outline-none {isPanning ? 'cursor-grabbing!' : (isShiftPressed || activeTool === 'hand' ? 'cursor-grab' : (activeTool === 'pen' ? 'cursor-crosshair' : 'cursor-default'))}"
         role="application"
         aria-label="Whiteboard drawing area"
         tabindex="0"
@@ -601,7 +873,31 @@
         ontouchmove={handleMove}
         ontouchend={handleEnd}
     >
-        <svg bind:this={svgElement} class="w-full h-full block">
+        <svg 
+            bind:this={svgElement} 
+            class="w-full h-full block"
+            viewBox={viewBox}
+            preserveAspectRatio="xMidYMid meet"
+        >
+            <!-- Selection Box -->
+            {#if isSelecting}
+                {@const minX = Math.min(selectionBox.startX, selectionBox.endX)}
+                {@const minY = Math.min(selectionBox.startY, selectionBox.endY)}
+                {@const width = Math.abs(selectionBox.endX - selectionBox.startX)}
+                {@const height = Math.abs(selectionBox.endY - selectionBox.startY)}
+                <rect
+                    x={minX}
+                    y={minY}
+                    width={width}
+                    height={height}
+                    fill="rgba(59, 130, 246, 0.1)"
+                    stroke="rgb(59, 130, 246)"
+                    stroke-width="2"
+                    stroke-dasharray="5,5"
+                    pointer-events="none"
+                />
+            {/if}
+
             <!-- Layer 0: Frames (Background) -->
             {#each $frames as frame (frame.id)}
                 <foreignObject
@@ -612,7 +908,7 @@
                     class="overflow-visible pointer-events-none"
                 >
                     <div
-                        class="w-full h-full border-2 border-dashed border-gray-400 rounded-lg flex flex-col relative pointer-events-auto bg-gray-500/10 hover:bg-gray-500/50 transition-colors"
+                        class="w-full h-full border-2 border-dashed rounded-lg flex flex-col relative pointer-events-auto bg-gray-500/10 hover:bg-gray-500/50 transition-colors {selectedElementIds.has(frame.id) ? 'border-blue-500' : 'border-gray-400'}"
                     >
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
@@ -678,7 +974,7 @@
                         class="overflow-visible pointer-events-none"
                     >
                         <div
-                            class="w-full h-full shadow-md rounded flex flex-col relative group pointer-events-auto transition-shadow hover:shadow-lg"
+                            class="w-full h-full shadow-md rounded flex flex-col relative group pointer-events-auto transition-shadow hover:shadow-lg {selectedElementIds.has(element.id) ? 'ring-2 ring-blue-500' : ''}"
                             style="background-color: {element.color};"
                         >
                             <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -744,6 +1040,11 @@
                                     class="w-full h-full overflow-auto text-gray-900 font-medium font-sans p-2 pt-0 cursor-text"
                                     onclick={(e) => {
                                         e.stopPropagation();
+                                        // Clear selection when clicking on an element
+                                        if (selectedElementIds.size > 0) {
+                                            selectedElementIds.clear();
+                                            updateSelectionVersion();
+                                        }
                                         editingCardId = element.id;
                                         bringToFront(element);
                                     }}
@@ -786,7 +1087,7 @@
                             <!-- Drag Handle (Overlay) -->
                             <!-- svelte-ignore a11y_no_static_element_interactions -->
                             <div
-                                class="absolute inset-0 cursor-move border-2 border-transparent group-hover:border-blue-400 transition-colors"
+                                class="absolute inset-0 cursor-move border-2 transition-colors {selectedElementIds.has(element.id) ? 'border-blue-500' : 'border-transparent group-hover:border-blue-400'}"
                                 onmousedown={(e) =>
                                     handleImageDragStart(e, element)}
                                 ontouchstart={(e) =>

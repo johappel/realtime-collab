@@ -97,20 +97,6 @@ npm install nostr-tools y-protocols
 
 ## Phase 4 – Lerngruppen & Erweiterungen
 
-- **✅ Gruppen-Code Authentifizierung (22.11.2025)**
-  - Dual-Mode: NIP-07 Extension oder 8-stelliger Gruppen-Code
-  - Deterministischer Key-Derivation via SHA-256
-  - URL-Parameter Support für QR-Codes (`?code=KURS-A&name=Max`)
-- **Auth & User-Management**
-  - Lokale Identitäts-Persistenz via LocalStorage
-  - Awareness-basierte Nutzerunterscheidung in Lerngruppen
-- **Private Dokumente**
-  - Verschlüsselung von Yjs-Updates (NIP-04/NIP-44)
-- **Dokumentenverwaltung**
-  - Liste aller Dokumente, Erstellung/Löschung/Umbennenung
-- **UI/UX-Verbesserungen**
-  - Vollständige Toolbar, Themes, History-Ansicht, Kommentare
-
 ---
 
 ## Phase 5 – Produktionstauglichkeit

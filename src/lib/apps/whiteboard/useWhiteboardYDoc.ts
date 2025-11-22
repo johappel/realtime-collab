@@ -64,6 +64,7 @@ export interface UseWhiteboardYDocResult {
     addImage: (x: number, y: number, url: string, iv: string, mimetype: string, width: number, height: number) => void;
     updateImage: (id: string, updates: Partial<WhiteboardImage>) => void;
     deleteImage: (id: string) => void;
+    deleteMultiple: (cardIds: string[], imageIds: string[], frameIds: string[]) => void;
     clearBoard: () => void;
     undo: () => void;
 }
@@ -284,6 +285,14 @@ export function useWhiteboardYDoc(
         });
     };
 
+    const deleteMultiple = (cardIds: string[], imageIds: string[], frameIds: string[]) => {
+        ydoc.transact(() => {
+            cardIds.forEach(id => yCards.delete(id));
+            imageIds.forEach(id => yImages.delete(id));
+            frameIds.forEach(id => yFrames.delete(id));
+        });
+    };
+
     const clearBoard = () => {
         ydoc.transact(() => {
             yPaths.delete(0, yPaths.length);
@@ -333,6 +342,7 @@ export function useWhiteboardYDoc(
         addImage,
         updateImage,
         deleteImage,
+        deleteMultiple,
         clearBoard,
         undo
     };
