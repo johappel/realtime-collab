@@ -118,3 +118,17 @@ npm install nostr-tools y-protocols
 - [ ] Monitoring/Logging.
 
 Die Roadmap ist bewusst iterativ – jede Phase sollte in sich nutzbare Mehrwerte liefern.
+
+---
+
+## Phase 6 – CI-Versum (Erkundungsapp)
+
+**Ziel:**
+- Entwicklung einer interaktiven Visualisierung der CI-Struktur als "Universum".
+- Exploratives Interface für Arbeitsbereiche, Projekte und Angebote.
+
+**Tasks:**
+- [ ] Konzept und Design (Metapher, Interaktion).
+- [ ] Prototyping der Visualisierung (Svelte + D3/Threlte).
+- [ ] Integration der Daten (Bereiche, Projekte, Zielgruppen).
+- [ ] UI-Polishing und Navigation.
