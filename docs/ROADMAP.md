@@ -97,6 +97,15 @@ npm install nostr-tools y-protocols
 
 ## Phase 4 – Lerngruppen & Erweiterungen
 
+- [x] **Group Mode (Basic)**: Authentifizierung via Shared Key (Gruppen-Code).
+- [x] **Author Filtering**: Isolation von Gruppen durch Filterung auf den Gruppen-Pubkey.
+- [ ] **Private Groups (Encryption)**:
+  - [ ] Implementierung von NIP-44 (XChaCha20-Poly1305) Verschlüsselung.
+  - [ ] `NostrYDocProvider`: Verschlüsseln von Updates vor dem Senden.
+  - [ ] `NostrYDocProvider`: Entschlüsseln von empfangenen Events.
+  - [ ] `NostrAwarenessProvider`: Verschlüsseln von Presence-Informationen.
+  - [ ] Fallback/Kompatibilität für unverschlüsselte Events prüfen.
+
 ---
 
 ## Phase 5 – Produktionstauglichkeit & Optimierung
