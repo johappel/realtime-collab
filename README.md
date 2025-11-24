@@ -21,6 +21,10 @@ Ein **Google Docs-ähnlicher Realtime-Editor** mit Svelte 5, TipTap, Yjs und Nos
 - Farbcodierte Benutzer
 - Presence-Liste mit aktiven Nutzern
 
+🚀 **Performance (24.11.2025)**
+- **Update Batching**: Reduzierter Netzwerk-Traffic durch Zusammenfassen von Updates (500ms Debounce).
+- **Optimierte Synchronisation**: Stabilere Verbindung auch bei schnellem Tippen.
+
 🎓 **Lerngruppen-Support (22.11.2025)**
 - **Dual-Mode Authentifizierung**:
   - Standard: NIP-07 Browser Extension (persönliche Identität)

@@ -1,8 +1,16 @@
 # Projekt-Fortschritt - Realtime Collaborative Editor
 
-## Letzte Aktualisierung: 22.11.2025
+## Letzte Aktualisierung: 24.11.2025
 
-### Status: Gruppen-Code Feature in Entwicklung 🚧
+### Status: Performance-Optimierung 🚀
+
+### ✅ Performance Optimierung (24.11.2025)
+- **Code-Analyse**: Detaillierte Untersuchung der Codebasis auf Performance-Engpässe (`docs/Codeanalysis.md`).
+- **Update Batching**:
+  - **Problem**: Jeder Tastenanschlag erzeugte ein einzelnes Nostr-Event, was zu Rate-Limiting und hohem Traffic führte.
+  - **Lösung**: Implementierung eines Puffers in `NostrYDocProvider`. Updates werden gesammelt und alle 500ms als ein zusammengefasstes Event (`Y.mergeUpdates`) gesendet.
+  - **Ergebnis**: Drastische Reduzierung der Netzwerk-Requests und stabilere Synchronisation.
+- **Review**: Base64-Konvertierung und Awareness-Parsing wurden als effizient genug bestätigt.
 
 ### ✅ Whiteboard Features (22.11.2025)
 - **Navigation & Zoom**:

@@ -99,10 +99,13 @@ npm install nostr-tools y-protocols
 
 ---
 
-## Phase 5 – Produktionstauglichkeit
+## Phase 5 – Produktionstauglichkeit & Optimierung
 
-- Stabilisierung, Tests, Performance-Tuning.
-- Eigene Relays oder Relay-Cluster.
-- Monitoring/Logging.
+- [x] **Performance-Analyse**: Code-Review und Identifikation von Engpässen (`docs/Codeanalysis.md`).
+- [x] **Update Batching**: Reduzierung von Nostr-Spam durch Zusammenfassen von Yjs-Updates (Debounce 500ms).
+- [ ] **Base64-Optimierung**: Weitere Verbesserung der Encoding-Performance bei sehr großen Dokumenten.
+- [ ] **Subscription Management**: Zentraler Pool für Subscriptions zur Vermeidung von Leaks.
+- [ ] Eigene Relays oder Relay-Cluster.
+- [ ] Monitoring/Logging.
 
 Die Roadmap ist bewusst iterativ – jede Phase sollte in sich nutzbare Mehrwerte liefern.
