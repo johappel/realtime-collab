@@ -30,13 +30,13 @@ Dieses Dokument beschreibt, wie Yjs (CRDT) mit Nostr-Relays als Transport intera
 
 - **Update-Events**
   - `kind: 9337` (Regular Event, damit History erhalten bleibt)
-  - `content`: Base64-kodierte Yjs-Update (`Uint8Array`).
+  - `content`: Base64-kodiertes Yjs-Update (`Uint8Array`). Im **Group Mode** ist dieser String zusätzlich **NIP-44 verschlüsselt**.
   - `tags`:
     - `["d", documentId]`
 
 - **Snapshot-Events (optional)**
   - `kind: 31338` (Replaceable Event)
-  - `content`: Base64-kodierter vollständiger Yjs-State (`encodeStateAsUpdate`).
+  - `content`: Base64-kodierter vollständiger Yjs-State (`encodeStateAsUpdate`). Im **Group Mode** verschlüsselt.
   - `tags`:
     - `["d", documentId]`
 
@@ -69,6 +69,7 @@ class NostrYDocProvider {
     relays?: string[];
     myPubkey?: string;
     signAndPublish?: (evt: EventTemplate) => Promise<void>;
+    groupPrivateKey?: string; // Optional: Für NIP-44 Verschlüsselung
     debug?: boolean;
   }) { /* … */ }
 }
@@ -79,6 +80,7 @@ class NostrYDocProvider {
 - `relays`: Liste von Relay-URLs (optional, Default im Code hinterlegt).
 - `myPubkey`: öffentlicher Schlüssel des aktuellen Users (optional; nur für Event-Filtern nötig).
 - `signAndPublish`: Funktion, welche ein `EventTemplate` signiert und an die Relays schickt (z. B. via NIP‑07). Wenn nicht gesetzt, werden lokale Updates zwar empfangen, aber nicht über Nostr publiziert (reiner Lese-Modus).
+- `groupPrivateKey`: Wenn gesetzt, werden alle Inhalte mit diesem Key nach NIP-44 verschlüsselt/entschlüsselt.
 - `debug`: Optionaler Boolean, um detailliertes Logging (Raw WebSocket Events) zu aktivieren.
 
 ### 4.3 Verhalten
@@ -87,6 +89,7 @@ class NostrYDocProvider {
   - Um Browser-Kompatibilitätsprobleme mit `nostr-tools` (SimplePool) zu vermeiden, wird eine interne `NativeRelay`-Klasse verwendet, die direkt auf `WebSocket` aufsetzt.
   - Sendet `["REQ", subId, { kinds: [9337], '#d': [documentId] }]`.
   - Auf jedem Event:
+    - Falls `groupPrivateKey` gesetzt: `content` mit NIP-44 entschlüsseln.
     - Content als Base64 → `Uint8Array`.
     - `Y.applyUpdate(ydoc, update, 'remote')`.
     - Optional: Events vom eigenen `pubkey` ignorieren.
@@ -95,9 +98,11 @@ class NostrYDocProvider {
   - `ydoc.on('update', (update, origin) => { … })` registrieren.
   - Nur Updates mit `origin !== 'remote'` senden, um Schleifen zu vermeiden.
   - **Connection Pooling:** Es wird dringend empfohlen, WebSocket-Verbindungen wiederzuverwenden (z.B. via `SimplePool` oder Shared Connection), da Yjs bei schnellem Tippen viele kleine Updates generiert.
-  - Update → Base64 → `EventTemplate` mit Feldern:
+  - Update → Base64.
+  - Falls `groupPrivateKey` gesetzt: Base64-String mit NIP-44 verschlüsseln.
+  - Resultat → `EventTemplate` mit Feldern:
     - `kind: 9337`
-    - `content: <base64>`
+    - `content: <base64 oder ciphertext>`
     - `tags: [['d', documentId]]`
     - `created_at: Math.floor(Date.now() / 1000)`
   - `signAndPublish(template)` aufrufen; die Signaturfunktion ergänzt `pubkey` und Signatur gemäß nostr-tools.
@@ -150,8 +155,11 @@ export function useNostrYDoc(
   - `signAndPublish` darf niemals private Keys direkt enthalten.
   - Erwartet ist z. B. Integration mit NIP‑07 (`window.nostr`).
 
-- **Verschlüsselung** (später):
-  - Für private Dokumente kann die Base64-Payload zusätzlich verschlüsselt werden.
+- **Verschlüsselung (Group Mode)**:
+  - Implementiert via **NIP-44** (XChaCha20-Poly1305).
+  - Der `groupPrivateKey` wird deterministisch aus dem Group Code abgeleitet.
+  - Verschlüsselung erfolgt "End-to-End" zwischen den Clients; Relays sehen nur den Ciphertext.
+  - Ablauf: `Yjs Update` -> `Base64` -> `NIP-44 Encrypt` -> `Nostr Event Content`.
   - Entschlüsselung erfolgt vor `Y.applyUpdate` im Client.
 
 ---

@@ -99,12 +99,12 @@ npm install nostr-tools y-protocols
 
 - [x] **Group Mode (Basic)**: Authentifizierung via Shared Key (Gruppen-Code).
 - [x] **Author Filtering**: Isolation von Gruppen durch Filterung auf den Gruppen-Pubkey.
-- [ ] **Private Groups (Encryption)**:
-  - [ ] Implementierung von NIP-44 (XChaCha20-Poly1305) Verschlüsselung.
-  - [ ] `NostrYDocProvider`: Verschlüsseln von Updates vor dem Senden.
-  - [ ] `NostrYDocProvider`: Entschlüsseln von empfangenen Events.
-  - [ ] `NostrAwarenessProvider`: Verschlüsseln von Presence-Informationen.
-  - [ ] Fallback/Kompatibilität für unverschlüsselte Events prüfen.
+- [x] **Private Groups (Encryption)**:
+  - [x] Implementierung von NIP-44 (XChaCha20-Poly1305) Verschlüsselung.
+  - [x] `NostrYDocProvider`: Verschlüsseln von Updates vor dem Senden.
+  - [x] `NostrYDocProvider`: Entschlüsseln von empfangenen Events.
+  - [x] `NostrAwarenessProvider`: Verschlüsseln von Presence-Informationen.
+  - [x] Fallback/Kompatibilität für unverschlüsselte Events prüfen.
 
 ---
 

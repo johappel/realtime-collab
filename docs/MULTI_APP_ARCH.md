@@ -41,6 +41,7 @@ Die Synchronisation erfolgt über `NostrYDocProvider`.
 *   **Events:** Updates werden als binäre Yjs-Updates (Base64) in Nostr-Events (Kind `9337`) verpackt.
 *   **Awareness:** Cursor-Positionen und Online-Status laufen über Replaceable Events (Kind `31339`).
 *   **Signierung:** Erfolgt über NIP-07 (Browser-Extension), Group Mode (Shared Key) oder lokale Keys.
+*   **Verschlüsselung (Group Mode):** End-to-End Verschlüsselung aller Inhalte (Updates, Snapshots, Awareness) mittels NIP-44 (XChaCha20-Poly1305).
 
 ### 2.2.1 App-Isolation (KRITISCH!)
 
@@ -85,7 +86,8 @@ useNostrYDoc(
     enablePersistence: boolean,
     relays: string[],
     userIdentifier?: string,  // Für Group Mode: Nickname
-    isGroupMode?: boolean     // Aktiviert Group Mode Features
+    isGroupMode?: boolean,    // Aktiviert Group Mode Features
+    groupPrivateKey?: string  // Optional: Für NIP-44 Verschlüsselung
 ) -> { ydoc, provider, awareness }
 
 // App-Spezifischer Hook (Beispiel mit Group Mode Support)
@@ -114,6 +116,9 @@ export function useMyAppYDoc(
     
     // 3. useNostrYDoc mit allen Parametern
     if (mode === 'nostr' || mode === 'group') {
+        // Group Key aus appState holen (wird meist in der UI-Komponente gemacht und hier reingereicht)
+        const groupPrivateKey = isGroupMode ? appState.groupPrivateKey : undefined;
+
         const result = useNostrYDoc(
             appDocumentId,
             user.pubkey,
@@ -121,7 +126,8 @@ export function useMyAppYDoc(
             false,
             relays,
             userIdentifier,
-            isGroupMode
+            isGroupMode,
+            groupPrivateKey
         );
         // ...
     }
@@ -278,7 +284,8 @@ src/routes/neue-app/[documentId]/
 - [ ] **KRITISCH:** App-Präfix für documentId: `const appDocumentId = \`neueapp:${documentId}\``
 - [ ] Group Mode Support: `isGroupMode = mode === 'group'`
 - [ ] User Identifier: `userIdentifier = user.name`
-- [ ] Alle 7 Parameter an `useNostrYDoc` übergeben
+- [ ] Group Private Key: `groupPrivateKey` entgegennehmen und weiterreichen
+- [ ] Alle 8 Parameter an `useNostrYDoc` übergeben
 - [ ] Yjs-Datentypen definieren (Y.Map, Y.Array, Y.Text, etc.)
 - [ ] Svelte Stores für UI erstellen
 - [ ] ObserveDeep für Sync Yjs → Stores

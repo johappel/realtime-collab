@@ -25,6 +25,11 @@ Ein **Google Docs-ähnlicher Realtime-Editor** mit Svelte 5, TipTap, Yjs und Nos
 - **Update Batching**: Reduzierter Netzwerk-Traffic durch Zusammenfassen von Updates (500ms Debounce).
 - **Optimierte Synchronisation**: Stabilere Verbindung auch bei schnellem Tippen.
 
+🔒 **End-to-End Encryption (24.11.2025)**
+- **NIP-44 Standard**: Nutzung von XChaCha20-Poly1305 für maximale Sicherheit.
+- **Full Privacy**: Verschlüsselung von Dokument-Inhalten UND Presence-Daten (Cursor, Namen).
+- **Group Mode**: Automatische Verschlüsselung basierend auf dem Gruppen-Code.
+
 🎓 **Lerngruppen-Support (22.11.2025)**
 - **Dual-Mode Authentifizierung**:
   - Standard: NIP-07 Browser Extension (persönliche Identität)

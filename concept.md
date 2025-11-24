@@ -55,13 +55,14 @@ Dies verhindert "Cross-Contamination", bei der Updates oder Cursor aus einer App
 Die Plattform unterstützt drei Nutzungs-Modi:
 1.  **Local Mode:** Offline, Daten nur im Browser (IndexedDB).
 2.  **Nostr Mode:** Persönliche Identität via NIP-07 Browser Extension (z.B. Alby).
-3.  **Group Mode:** Gemeinsamer Zugriff via Shared Key (aus einem Gruppen-Code generiert), ideal für Lerngruppen/Schulen.
+3.  **Group Mode:** Gemeinsamer Zugriff via Shared Key (aus einem Gruppen-Code generiert), ideal für Lerngruppen/Schulen. **Neu:** Vollständig End-to-End verschlüsselt (NIP-44).
 
 ---
 
 ## 4. Features & UX
 
 *   **Echtzeit-Kollaboration:** Änderungen werden sofort bei allen Teilnehmern sichtbar.
+*   **Security & Privacy:** Im Group Mode sind alle Daten (Inhalte + Cursor) via NIP-44 (XChaCha20-Poly1305) verschlüsselt. Relays sehen nur Kauderwelsch.
 *   **Presence:** Man sieht, wer gerade online ist und wo (Cursor/Avatar).
 *   **Offline-First:** Dank `y-indexeddb` kann auch ohne Internet weitergearbeitet werden. Sync erfolgt bei Wiederverbindung.
 *   **Performance:** Update-Batching verhindert Relay-Spam bei schnellen Änderungen.

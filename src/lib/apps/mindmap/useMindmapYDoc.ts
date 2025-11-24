@@ -22,7 +22,8 @@ export function useMindmapYDoc(
     user: { name: string; color: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
-    relays?: string[]
+    relays?: string[],
+    groupPrivateKey?: string
 ): UseMindmapYDocResult {
     let ydoc: Y.Doc;
     let provider: any;
@@ -35,7 +36,7 @@ export function useMindmapYDoc(
         const isGroupMode = mode === 'group';
         // Prefix documentId with app type to separate awareness between apps
         const appDocumentId = `mindmap:${documentId}`;
-        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode);
+        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode, groupPrivateKey);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;

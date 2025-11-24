@@ -2,7 +2,20 @@
 
 ## Letzte Aktualisierung: 24.11.2025
 
-### Status: Performance-Optimierung 🚀
+### Status: Security & Encryption 🔒
+
+### ✅ End-to-End Encryption (Group Mode) (24.11.2025)
+- **NIP-44 Implementierung**:
+  - Vollständige Integration von **XChaCha20-Poly1305** Verschlüsselung gemäß NIP-44.
+  - Deterministische Key-Ableitung aus dem Group Code.
+- **Provider-Updates**:
+  - `NostrYDocProvider`: Verschlüsselt Yjs-Updates (Kind 9337) und Snapshots (Kind 9338) automatisch im Group Mode.
+  - `NostrAwarenessProvider`: Verschlüsselt Presence-Informationen (Kind 31339), sodass Cursor-Positionen und Namen privat bleiben.
+- **App-Integration**:
+  - Alle 5 Apps (Editor, Mindmap, Todo, Poll, Whiteboard) unterstützen nun verschlüsselte Kommunikation.
+  - Nahtlose Integration in die bestehende UI – der Nutzer merkt keinen Unterschied, außer dass die Daten sicher sind.
+- **Testing**:
+  - Unit-Tests für Verschlüsselung/Entschlüsselung und Key-Generierung hinzugefügt.
 
 ### ✅ Performance Optimierung (24.11.2025)
 - **Code-Analyse**: Detaillierte Untersuchung der Codebasis auf Performance-Engpässe (`docs/Codeanalysis.md`).

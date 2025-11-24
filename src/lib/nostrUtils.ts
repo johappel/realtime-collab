@@ -7,7 +7,16 @@
  * with Nostr relays in environments where existing libraries may have limitations.
  * 
  */
-import type { EventTemplate, Event, UnsignedEvent } from 'nostr-tools';
+import { type EventTemplate, type Event, type UnsignedEvent, nip44, getPublicKey } from 'nostr-tools';
+
+function hexToBytes(hex: string): Uint8Array {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
 
 declare global {
     interface Window {
@@ -341,4 +350,37 @@ export class NativeRelay {
             this.connection.offOpen(this.openListener);
         }
     }
+}
+
+/**
+ * Verschlüsselt einen Inhalt für die Gruppe (an sich selbst).
+ * Nutzt NIP-44 (XChaCha20-Poly1305).
+ * 
+ * @param content - Der zu verschlüsselnde Text (z.B. Base64 Yjs Update)
+ * @param groupPrivateKey - Der Private Key der Gruppe
+ * @returns Der verschlüsselte Text (Ciphertext)
+ */
+export function encryptForGroup(content: string, groupPrivateKey: string): string {
+    if (!content) return "";
+    const privKeyBytes = hexToBytes(groupPrivateKey);
+    const groupPubkey = getPublicKey(privKeyBytes);
+    const conversationKey = nip44.getConversationKey(privKeyBytes, groupPubkey);
+    return nip44.encrypt(content, conversationKey);
+}
+
+/**
+ * Entschlüsselt einen Inhalt für die Gruppe.
+ * Nutzt NIP-44 (XChaCha20-Poly1305).
+ * 
+ * @param content - Der verschlüsselte Text
+ * @param groupPrivateKey - Der Private Key der Gruppe
+ * @returns Der entschlüsselte Text (Klartext)
+ * @throws Error, wenn Entschlüsselung fehlschlägt
+ */
+export function decryptForGroup(content: string, groupPrivateKey: string): string {
+    if (!content) return "";
+    const privKeyBytes = hexToBytes(groupPrivateKey);
+    const groupPubkey = getPublicKey(privKeyBytes);
+    const conversationKey = nip44.getConversationKey(privKeyBytes, groupPubkey);
+    return nip44.decrypt(content, conversationKey);
 }

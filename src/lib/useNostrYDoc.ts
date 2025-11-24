@@ -22,6 +22,7 @@ export function useNostrYDoc(
   relays?: string[],
   userIdentifier?: string, // Optional: unique user identifier (e.g., nickname in group mode)
   isGroupMode: boolean = false, // If true, allows multiple users with same pubkey
+  groupPrivateKey?: string, // Optional: private key for group encryption
 ): UseNostrYDocResult {
   // Try to restore clientID to prevent "ghost users" on reload
   // In group mode, we need to use a user-specific key to ensure each user gets their own clientID
@@ -87,6 +88,7 @@ export function useNostrYDoc(
     debug,
     relays,
     isGroupMode,
+    groupPrivateKey,
   });
 
   const awarenessProvider = new NostrAwarenessProvider({
@@ -97,6 +99,7 @@ export function useNostrYDoc(
     relays,
     debug,
     isGroupMode,
+    groupPrivateKey,
   });
 
   return { ydoc, yXmlFragment, provider, awareness, awarenessProvider, persistence };

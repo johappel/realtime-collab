@@ -28,7 +28,8 @@ export function useWikiYDoc(
     user: { name: string; color: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
-    relays?: string[]
+    relays?: string[],
+    groupPrivateKey?: string
 ): UseWikiYDocResult {
     let ydoc: Y.Doc;
     let provider: any;
@@ -41,7 +42,7 @@ export function useWikiYDoc(
         const isGroupMode = mode === 'group';
         // Prefix documentId with app type to separate awareness between apps
         const appDocumentId = `wiki:${documentId}`;
-        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, true, relays, userIdentifier, isGroupMode);
+        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, true, relays, userIdentifier, isGroupMode, groupPrivateKey);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;

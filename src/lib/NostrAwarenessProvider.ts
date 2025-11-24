@@ -8,7 +8,7 @@
  */
 import { Awareness } from 'y-protocols/awareness';
 import type { EventTemplate, Event } from 'nostr-tools';
-import { NativeRelay } from './nostrUtils';
+import { NativeRelay, encryptForGroup, decryptForGroup } from './nostrUtils';
 
 const DEFAULT_RELAYS = [
   'ws://localhost:7000',
@@ -25,6 +25,7 @@ export interface NostrAwarenessProviderOptions {
     signAndPublish: (event: EventTemplate) => Promise<any>;
     debug?: boolean;
     isGroupMode?: boolean; // If true, allows multiple users with same pubkey
+    groupPrivateKey?: string;
 }
 /**
  * Nostr-based Awareness Provider for Yjs
@@ -39,6 +40,7 @@ export class NostrAwarenessProvider {
     private lastSentState: string | null = null;
     private debug: boolean;
     private isGroupMode: boolean;
+    private groupPrivateKey?: string;
     private pubkeyToClientId: Map<string, number> = new Map();
     private usernameToClientId: Map<string, number> = new Map(); // For group mode
     private heartbeatInterval: any = null;
@@ -53,6 +55,7 @@ export class NostrAwarenessProvider {
         this.signAndPublish = opts.signAndPublish;
         this.debug = opts.debug ?? false;
         this.isGroupMode = opts.isGroupMode ?? false;
+        this.groupPrivateKey = opts.groupPrivateKey;
 
         if (this.debug) {
             console.log(`[NostrAwarenessProvider] 🆕 Created provider for document: "${this.documentId}"`);
@@ -148,7 +151,17 @@ export class NostrAwarenessProvider {
                 return;
             }
 
-            const content = JSON.parse(event.content);
+            let contentStr = event.content;
+            if (this.groupPrivateKey) {
+                try {
+                    contentStr = decryptForGroup(contentStr, this.groupPrivateKey);
+                } catch (e) {
+                    if (this.debug) console.warn(`[NostrAwarenessProvider] Failed to decrypt event ${event.id}`, e);
+                    return;
+                }
+            }
+
+            const content = JSON.parse(contentStr);
             const { clientId, state } = content;
 
             if (this.debug) {
@@ -322,11 +335,15 @@ export class NostrAwarenessProvider {
 
         this.lastSentState = stateStr;
 
-        const content = JSON.stringify({
+        let content = JSON.stringify({
             clientId: this.awareness.clientID,
             state: state,
             ts: Math.floor(Date.now() / 1000)
         });
+
+        if (this.groupPrivateKey) {
+            content = encryptForGroup(content, this.groupPrivateKey);
+        }
 
         const event: EventTemplate = {
             kind: 31339,

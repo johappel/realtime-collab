@@ -580,6 +580,8 @@
         let relays: string[] = [];
         let signAndPublish: any = null;
 
+        let groupPrivateKey: string | undefined;
+
         if (mode === "nostr" || mode === "group") {
             try {
                 const config = await loadConfig();
@@ -605,6 +607,7 @@
                         return;
                     }
 
+                    groupPrivateKey = appState.groupPrivateKey;
                     pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
                     signAndPublish = (evt: any) =>
                         signWithPrivateKey(
@@ -630,6 +633,7 @@
             pubkey,
             signAndPublish,
             relays,
+            groupPrivateKey
         );
 
         paths = result.paths;

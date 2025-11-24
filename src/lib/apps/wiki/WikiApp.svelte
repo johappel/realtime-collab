@@ -57,6 +57,7 @@
             let pubkey: string | undefined;
             let signAndPublish: any;
             let relays: string[] | undefined;
+            let groupPrivateKey: string | undefined;
 
             if (mode === "nostr" || mode === "group") {
                 try {
@@ -80,6 +81,7 @@
                             return;
                         }
 
+                        groupPrivateKey = appState.groupPrivateKey;
                         pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
                         console.log("[WikiApp] Got pubkey from group key:", pubkey);
                         
@@ -144,6 +146,7 @@
                 pubkey,
                 signAndPublish,
                 relays,
+                groupPrivateKey
             );
             ydoc = wikiHook.ydoc;
             awareness = wikiHook.awareness;

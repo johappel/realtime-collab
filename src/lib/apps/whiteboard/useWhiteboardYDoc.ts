@@ -88,7 +88,8 @@ export function useWhiteboardYDoc(
     user: { name: string; color: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
-    relays?: string[]
+    relays?: string[],
+    groupPrivateKey?: string
 ): UseWhiteboardYDocResult {
     let ydoc: Y.Doc;
     let provider: any;
@@ -103,7 +104,8 @@ export function useWhiteboardYDoc(
             false,
             relays || [],
             user.name,
-            mode === 'group'
+            mode === 'group',
+            groupPrivateKey
         );
         ydoc = result.ydoc;
         provider = result.provider;

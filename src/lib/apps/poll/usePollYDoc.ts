@@ -38,7 +38,8 @@ export function usePollYDoc(
     user: { name: string; color: string; pubkey?: string },
     myPubkey?: string,
     signAndPublish?: (evt: any) => Promise<any>,
-    relays?: string[]
+    relays?: string[],
+    groupPrivateKey?: string
 ): UsePollYDocResult {
     let ydoc: Y.Doc;
     let provider: any;
@@ -51,7 +52,7 @@ export function usePollYDoc(
         const isGroupMode = mode === 'group';
         // Prefix documentId with app type to separate awareness between apps
         const appDocumentId = `poll:${documentId}`;
-        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode);
+        const result = useNostrYDoc(appDocumentId, myPubkey, signAndPublish, false, relays, userIdentifier, isGroupMode, groupPrivateKey);
         ydoc = result.ydoc;
         provider = result.provider;
         awareness = result.awareness;

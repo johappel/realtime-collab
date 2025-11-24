@@ -36,6 +36,7 @@
         let pubkey = "";
         let relays: string[] = [];
         let signAndPublish: any = null;
+        let groupPrivateKey: string | undefined;
 
         if (mode === "nostr" || mode === "group") {
             try {
@@ -56,6 +57,7 @@
                         return;
                     }
 
+                    groupPrivateKey = appState.groupPrivateKey;
                     pubkey = getPubkeyFromPrivateKey(appState.groupPrivateKey);
                     signAndPublish = (evt: any) =>
                         signWithPrivateKey(evt, appState.groupPrivateKey!, relays);
@@ -76,6 +78,7 @@
             pubkey,
             signAndPublish,
             relays,
+            groupPrivateKey
         );
 
         items = result.items;

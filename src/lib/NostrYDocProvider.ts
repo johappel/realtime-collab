@@ -9,7 +9,7 @@
  
 import * as Y from 'yjs';
 import type { EventTemplate, Event } from 'nostr-tools';
-import { NativeRelay } from './nostrUtils';
+import { NativeRelay, encryptForGroup, decryptForGroup } from './nostrUtils';
 
 const DEFAULT_RELAYS = [
   'ws://localhost:7000',
@@ -44,6 +44,7 @@ export interface NostrYDocProviderOptions {
   myPubkey: string;
   signAndPublish: (event: EventTemplate) => Promise<Event | void>;
   debug?: boolean;
+  groupPrivateKey?: string;
 }
 
 export class NostrYDocProvider {
@@ -60,6 +61,7 @@ export class NostrYDocProvider {
   
   private debug: boolean;
   private isGroupMode: boolean;
+  private groupPrivateKey?: string;
 
   // Batching
   private pendingUpdates: Uint8Array[] = [];
@@ -78,6 +80,7 @@ export class NostrYDocProvider {
     this.signAndPublish = opts.signAndPublish;
     this.debug = opts.debug ?? false;
     this.isGroupMode = opts.isGroupMode ?? false;
+    this.groupPrivateKey = opts.groupPrivateKey;
 
     this.subscribe();
     this.bindYDocUpdates();
@@ -102,7 +105,19 @@ export class NostrYDocProvider {
             }
         } else {
             // Update (9337)
-            const update = base64ToUint8(event.content);
+            let content = event.content;
+            
+            // Decrypt if group mode
+            if (this.groupPrivateKey) {
+                try {
+                    content = decryptForGroup(content, this.groupPrivateKey);
+                } catch (e) {
+                    if (this.debug) console.warn(`[NostrYDocProvider] Failed to decrypt event ${event.id}`, e);
+                    return; // Ignore unreadable events
+                }
+            }
+
+            const update = base64ToUint8(content);
             Y.applyUpdate(this.ydoc, update, 'remote');
             if (this.debug) console.log(`[NostrYDocProvider] Applied update from event ${event.id}`);
         }
@@ -144,7 +159,11 @@ export class NostrYDocProvider {
 
   public async saveSnapshot() {
       const state = Y.encodeStateAsUpdate(this.ydoc);
-      const base64State = uint8ToBase64(state);
+      let base64State = uint8ToBase64(state);
+      
+      if (this.groupPrivateKey) {
+          base64State = encryptForGroup(base64State, this.groupPrivateKey);
+      }
       
       // Use kind 9338 for manual snapshots (History)
       const event: EventTemplate = {
@@ -168,7 +187,17 @@ export class NostrYDocProvider {
 
   public async applySnapshot(event: Event) {
       try {
-          const update = base64ToUint8(event.content);
+          let content = event.content;
+          if (this.groupPrivateKey) {
+              try {
+                  content = decryptForGroup(content, this.groupPrivateKey);
+              } catch (e) {
+                  console.error("Failed to decrypt snapshot", e);
+                  return;
+              }
+          }
+
+          const update = base64ToUint8(content);
           Y.applyUpdate(this.ydoc, update, 'remote');
           if (this.debug) console.log(`[NostrYDocProvider] Applied snapshot ${event.id}`);
       } catch (e) {
@@ -214,7 +243,11 @@ export class NostrYDocProvider {
     this.pendingUpdates = []; // Clear buffer immediately
     this.debounceTimer = null;
 
-    const base64Update = uint8ToBase64(mergedUpdate);
+    let base64Update = uint8ToBase64(mergedUpdate);
+
+    if (this.groupPrivateKey) {
+        base64Update = encryptForGroup(base64Update, this.groupPrivateKey);
+    }
 
     const nostrEvent: EventTemplate = {
       kind: 9337,
