@@ -73,22 +73,22 @@ Eine Suite von **Local-First Kollaborations-Tools**, die:
 
 Wenn du eine neue App (z.B. Whiteboard) hinzufügst oder eine bestehende erweiterst:
 
-1.  **Ordnerstruktur:**
-    - Erstelle `src/lib/apps/<neue-app>/`.
-2.  **Hook-Pattern:**
-    - Schreibe einen Hook `use<NeueApp>YDoc.ts`, der `useNostrYDoc` wrappt.
-    - Dieser Hook kapselt die gesamte Yjs-Logik und exportiert einfache Svelte-Stores/Funktionen für die UI.
-    - **KRITISCH:** Verwende App-Präfix: `const appDocumentId = \`neueapp:${documentId}\``
-    - **Group Mode:** Unterstütze `mode: 'local' | 'nostr' | 'group'`
-    - **Alle 7 Parameter:** Übergebe alle Parameter an `useNostrYDoc` (siehe Sektion 5.8)
-    - **Niemals** Yjs-Logik direkt in die Svelte-Komponente schreiben (außer bei TipTap, wo es nötig ist).
-3.  **UI-Komponente:**
-    - Die Komponente (`NeueApp.svelte`) sollte "dumm" sein und nur Daten anzeigen / Events feuern.
-    - **AppHeader nutzen:** Jede App-Page (`+page.svelte`) MUSS den `AppHeader` verwenden, um konsistente Navigation, Titel-Bearbeitung und Presence-Anzeige zu gewährleisten.
-    - **Titel-Sync:** Der Dokument-Titel muss bidirektional mit `ydoc.getMap('metadata').get('title')` (oder app-spezifischem Key) synchronisiert werden, damit Änderungen im Header auch im Yjs-State landen und umgekehrt.
-4.  **TipTap Erweiterungen:**
-    - Für Editor-basierte Apps (Wiki, Notes): Nutze Custom Extensions für spezielle Features (z.B. `WikiLink` für `[Page]`-Syntax).
-    - Nutze `InputRule` für Auto-Formatierung während des Tippens.
+1. **Ordnerstruktur:**
+   - Erstelle `src/lib/apps/<neue-app>/`.
+2. **Hook-Pattern:**
+   - Schreibe einen Hook `use<NeueApp>YDoc.ts`, der `useNostrYDoc` wrappt.
+   - Dieser Hook kapselt die gesamte Yjs-Logik und exportiert einfache Svelte-Stores/Funktionen für die UI.
+   - **KRITISCH:** Verwende App-Präfix: `const appDocumentId = \`neueapp:${documentId}\``
+   - **Group Mode:** Unterstütze `mode: 'local' | 'nostr' | 'group'`
+   - **Alle 7 Parameter:** Übergebe alle Parameter an `useNostrYDoc` (siehe Sektion 5.8)
+   - **Niemals** Yjs-Logik direkt in die Svelte-Komponente schreiben (außer bei TipTap, wo es nötig ist).
+3. **UI-Komponente:**
+   - Die Komponente (`NeueApp.svelte`) sollte "dumm" sein und nur Daten anzeigen / Events feuern.
+   - **AppHeader nutzen:** Jede App-Page (`+page.svelte`) MUSS den `AppHeader` verwenden, um konsistente Navigation, Titel-Bearbeitung und Presence-Anzeige zu gewährleisten.
+   - **Titel-Sync:** Der Dokument-Titel muss bidirektional mit `ydoc.getMap('metadata').get('title')` (oder app-spezifischem Key) synchronisiert werden, damit Änderungen im Header auch im Yjs-State landen und umgekehrt.
+4. **TipTap Erweiterungen:**
+   - Für Editor-basierte Apps (Wiki, Notes): Nutze Custom Extensions für spezielle Features (z.B. `WikiLink` für `[Page]`-Syntax).
+   - Nutze `InputRule` für Auto-Formatierung während des Tippens.
 
 ---
 
@@ -142,10 +142,12 @@ Wenn du (als AI-Agent) Code generierst oder anpasst, halte dich an diese Regeln:
 ## 6. Wichtige Module & Verantwortlichkeiten
 
 ### 6.1 Core Hooks
+
 - `useNostrYDoc(documentId, pubkey, signAndPublish, enablePersistence, relays, userIdentifier, isGroupMode)` – Generischer Hook für alle Apps (verbindet Yjs mit Nostr). **7 Parameter!**
 - `useLocalYDoc(documentId)` – Offline-Modus mit IndexedDB.
 
 ### 6.2 App-Hooks (verwenden useNostrYDoc/useLocalYDoc)
+
 - `useTodoYDoc` – Todo-Listen mit Y.Map + Y.Array
 - `useMindmapYDoc` – Mindmaps mit Nodes + Edges
 - `useWikiYDoc` – Wiki-Seiten mit Y.Map + XmlFragment pro Seite
@@ -153,12 +155,14 @@ Wenn du (als AI-Agent) Code generierst oder anpasst, halte dich an diese Regeln:
 - `useWhiteboardYDoc` – Whiteboard mit Y.Array für Elemente
 
 ### 6.3 Provider (Infrastruktur)
+
 - `NostrYDocProvider` – Bidirektionales Binding Yjs ↔ Nostr (Kind 9337 für Updates).
 - `NostrAwarenessProvider` – Binding Yjs-Awareness ↔ Nostr (Kind 31339, Replaceable).
   - Heartbeat (15s), Stale Cleanup (40s), Ghost Killer, Event Filtering
   - Group Mode Support: Username-basiertes Tracking statt Pubkey
 
 ### 6.4 Utilities
+
 - `nostrUtils.ts` – `RelayConnection` Pool, `generateKeyFromCode()`, `getOrSetLocalIdentity()`, `getRandomColor()`
 - `groupAuth.ts` – `signWithPrivateKey()`, `getPubkeyFromPrivateKey()` für Group Mode
 - `appState.svelte.ts` – Global State: `mode`, `user`, `groupCode`, `groupPrivateKey`
@@ -231,11 +235,13 @@ type Props = {
 ```
 
 ### 9.2 Event Kinds
+
 - **9337:** Yjs Updates (Content = Base64)
 - **31339:** Awareness (Replaceable, d-Tag = documentId)
 - **9338/31338:** Snapshots (Optional)
 
 ### 9.3 Storage Keys
+
 ```typescript
 localStorage.getItem('app_mode');          // 'local' | 'nostr' | 'group'
 localStorage.getItem('app_group_code');    // Group Code
