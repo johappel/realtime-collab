@@ -69,14 +69,14 @@ Optimierung der Filter-Reihenfolge. Erst Metadaten (Tags, Pubkey) prüfen, dann 
 
 ## 3. Maßnahmenplan
 
-### Schritt 1: Update-Batching implementieren (Priorität: Hoch)
-- `NostrYDocProvider` um einen Puffer erweitern.
-- `Y.mergeUpdates` nutzen, um gesammelte Updates zu vereinen.
-- Timer-basiertes Senden (z.B. `setTimeout` mit 500ms Debounce).
+### Schritt 1: Update-Batching implementieren (Priorität: Hoch) - ✅ Erledigt
+- `NostrYDocProvider` wurde um einen Puffer erweitert.
+- `Y.mergeUpdates` wird genutzt, um gesammelte Updates zu vereinen.
+- Timer-basiertes Senden (500ms Debounce) implementiert.
 
-### Schritt 2: Base64 Optimierung (Priorität: Mittel)
-- `uint8ToBase64` durch effizientere Implementierung ersetzen.
+### Schritt 2: Base64 Optimierung (Priorität: Mittel) - ✅ Geprüft
+- Die aktuelle Implementierung nutzt bereits Chunking (`0x8000`), was für Browser performant und sicher ist. Keine Änderung notwendig ohne externe Abhängigkeiten.
 
-### Schritt 3: Code Cleanup (Priorität: Niedrig)
-- `NostrAwarenessProvider` Parsing optimieren.
-- Sicherstellen, dass alle `destroy()` Aufrufe korrekt implementiert sind.
+### Schritt 3: Code Cleanup (Priorität: Niedrig) - ✅ Geprüft
+- `NostrAwarenessProvider` Parsing ist bereits nach den Metadaten-Checks platziert.
+- `destroy()` Aufrufe in `TipTapEditor` sind korrekt implementiert.

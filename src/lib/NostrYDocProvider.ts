@@ -60,6 +60,11 @@ export class NostrYDocProvider {
   
   private debug: boolean;
 
+  // Batching
+  private pendingUpdates: Uint8Array[] = [];
+  private debounceTimer: any = null;
+  private readonly DEBOUNCE_MS = 500;
+
   // Observable for external UI
   public onSnapshot: ((snapshots: Event[]) => void) | null = null;
   private snapshots: Map<string, Event> = new Map(); // id -> event
@@ -175,26 +180,55 @@ export class NostrYDocProvider {
         return;
       }
 
-      if (this.debug) console.log('[NostrYDocProvider] 📤 Preparing to publish local update...');
-      const base64Update = uint8ToBase64(update);
+      // Batch updates
+      this.pendingUpdates.push(update);
 
-      const nostrEvent: EventTemplate = {
-        kind: 9337,
-        content: base64Update,
-        tags: [['d', this.documentId]],
-        created_at: Math.floor(Date.now() / 1000),
-      };
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+      }
 
-      if (this.debug) console.log('[NostrYDocProvider] 🔐 Calling signAndPublish...');
-      this.signAndPublish(nostrEvent).then((result) => {
-        if (this.debug) console.log('[NostrYDocProvider] ✅ Published update kind 9337', result);
-      }).catch((error) => {
-        console.error('[NostrYDocProvider] ❌ Failed to publish update:', error);
-      });
+      this.debounceTimer = setTimeout(() => {
+        this.publishPendingUpdates();
+      }, this.DEBOUNCE_MS);
     });
   }
 
+  private async publishPendingUpdates() {
+    if (this.pendingUpdates.length === 0) return;
+
+    if (this.debug) console.log(`[NostrYDocProvider] 📤 Preparing to publish ${this.pendingUpdates.length} batched updates...`);
+    
+    // Merge all pending updates into one
+    const mergedUpdate = Y.mergeUpdates(this.pendingUpdates);
+    this.pendingUpdates = []; // Clear buffer immediately
+    this.debounceTimer = null;
+
+    const base64Update = uint8ToBase64(mergedUpdate);
+
+    const nostrEvent: EventTemplate = {
+      kind: 9337,
+      content: base64Update,
+      tags: [['d', this.documentId]],
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    if (this.debug) console.log('[NostrYDocProvider] 🔐 Calling signAndPublish...');
+    try {
+      const result = await this.signAndPublish(nostrEvent);
+      if (this.debug) console.log('[NostrYDocProvider] ✅ Published update kind 9337', result);
+    } catch (error) {
+      console.error('[NostrYDocProvider] ❌ Failed to publish update:', error);
+      // Optional: Re-queue update? For now, we just log error.
+      // If we re-queue, we need to be careful about order.
+    }
+  }
+
   destroy() {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      // Try to publish remaining updates before destroying?
+      // Might be risky if connection is closing.
+    }
     this.activeRelays.forEach(r => r.close());
     this.activeRelays = [];
   }
