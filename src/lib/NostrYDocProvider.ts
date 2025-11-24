@@ -59,6 +59,7 @@ export class NostrYDocProvider {
   private signAndPublish: (event: EventTemplate) => Promise<Event | void>;
   
   private debug: boolean;
+  private isGroupMode: boolean;
 
   // Batching
   private pendingUpdates: Uint8Array[] = [];
@@ -69,13 +70,14 @@ export class NostrYDocProvider {
   public onSnapshot: ((snapshots: Event[]) => void) | null = null;
   private snapshots: Map<string, Event> = new Map(); // id -> event
 
-  constructor(opts: NostrYDocProviderOptions) {
+  constructor(opts: NostrYDocProviderOptions & { isGroupMode?: boolean }) {
     this.ydoc = opts.ydoc;
     this.documentId = opts.documentId;
     this.relays = opts.relays ?? DEFAULT_RELAYS;
     this.myPubkey = opts.myPubkey;
     this.signAndPublish = opts.signAndPublish;
     this.debug = opts.debug ?? false;
+    this.isGroupMode = opts.isGroupMode ?? false;
 
     this.subscribe();
     this.bindYDocUpdates();
@@ -119,10 +121,19 @@ export class NostrYDocProvider {
                 this.applyEvent(event);
             }, this.debug);
             
-            relay.sendReq({
+            const filter: any = {
                 kinds: [9337, 31338, 9338],
                 '#d': [this.documentId],
-            });
+            };
+
+            // In Group Mode, we MUST filter by author (our shared group pubkey)
+            // to prevent collisions if another group uses the same documentId.
+            if (this.isGroupMode) {
+                filter.authors = [this.myPubkey];
+                if (this.debug) console.log(`[NostrYDocProvider] 🔒 Group Mode: Filtering events by author ${this.myPubkey}`);
+            }
+
+            relay.sendReq(filter);
 
             this.activeRelays.push(relay);
         } catch (e) {

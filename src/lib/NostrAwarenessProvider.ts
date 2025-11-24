@@ -89,11 +89,20 @@ export class NostrAwarenessProvider {
                 // Get recent awareness states (last 60 seconds)
                 // Kind 31339 are replaceable events, so we get the latest state of all users
                 const now = Math.floor(Date.now() / 1000);
-                relay.sendReq({
+                const filter: any = {
                     kinds: [31339],
                     '#d': [this.documentId],
                     since: now - 60, // Get states from last 60 seconds
-                });
+                };
+
+                // In Group Mode, we MUST filter by author (our shared group pubkey)
+                // to prevent collisions if another group uses the same documentId.
+                if (this.isGroupMode) {
+                    filter.authors = [this.myPubkey];
+                    if (this.debug) console.log(`[NostrAwarenessProvider] 🔒 Group Mode: Filtering events by author ${this.myPubkey}`);
+                }
+
+                relay.sendReq(filter);
 
                 if (this.debug) {
                     console.log(`[NostrAwarenessProvider] 🔌 Subscribed to ${url} for awareness (kind 31339)`);

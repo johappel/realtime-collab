@@ -1,145 +1,80 @@
-## 1. Grundidee: Nostr als Realtime-Backend
+# Konzept: Multi-App Kollaborations-Plattform
 
-Nostr bringt dir eigentlich schon alles mit, was du für „realtime collaborative“ brauchst:
+Dieses Dokument beschreibt das Konzept einer **Multi-App-Plattform** (Text-Editor, Mindmap, Todo-Liste, Whiteboard, etc.), die auf einer gemeinsamen technischen Basis operiert.
 
-* **Events** als unveränderliche Zustände oder Patches
-* **Relays** als verteiltes Backend (Pub/Sub)
-* **WebSockets**: Client (Svelte5-App) hängt live am Relay
-* **Signaturen**: jede Änderung ist einer Person zugeordnet (npub)
+## 1. Grundidee: Nostr als universeller Realtime-Bus
 
-Für Kollaboration brauchst du dann im Wesentlichen:
+Nostr bietet die ideale Infrastruktur für "Local-First" Kollaboration:
+* **Events** als unveränderliche Zustände oder Patches.
+* **Relays** als verteiltes Backend (Pub/Sub).
+* **WebSockets** für Live-Updates.
+* **Signaturen** für Identität und Integrität.
 
-1. **Datenmodell**, das konfliktresistent ist (CRDT, Operational Transform o. ä.)
-2. **Mapping auf Nostr-Events**, z. B. pro Dokument ein Stream von Events (kind X)
-3. **Client-Logik**, die diese Events:
-
-   * abonniert,
-   * in einen Zustand zusammenführt,
-   * und bei Änderungen neue Events publiziert.
+Anstatt für jede App (Editor, Mindmap, Todo) ein eigenes Backend zu bauen, nutzen wir Nostr als **Transport-Schicht** für einen universellen State-Container (**Yjs**).
 
 ---
 
-## 2. Svelte 5 („runes“) als Frontend
+## 2. Architektur: Svelte 5 + Yjs + Nostr
 
-Svelte 5 ist dafür ziemlich ideal:
+Die Plattform besteht aus drei Schichten:
 
-* Reaktive Stores / Runes für:
+### A) Frontend (Svelte 5)
+* **Runes** (`$state`, `$derived`, `$effect`) für reaktives State-Management.
+* **App-Isolation:** Jede App (z.B. `MindmapCanvas.svelte`, `TipTapEditor.svelte`) ist eine eigenständige Komponente.
+* **Shared Components:** Wiederverwendbare UI-Elemente wie `AppHeader`, `PresenceList`, `SettingsDialog`.
 
-  * `currentDoc` (aktueller Text)
-  * `cursor/selection` der User
-  * `presence` (wer ist online)
-* Ein **WYSIWYG- oder Markdown-Editor** (z. B. TipTap, ProseMirror, Milkdown, CodeMirror mit Markdown) lässt sich integrieren.
-* Änderungen im Editor → in einem Store sammeln → in Nostr-Events serialisieren.
+### B) State Management (Yjs)
+Yjs dient als **Single Source of Truth**. Jede App nutzt spezifische Yjs-Datentypen:
+* **Text Editor:** `ydoc.getXmlFragment('prosemirror')`
+* **Mindmap:** `ydoc.getMap('mindmap-nodes')`, `ydoc.getMap('mindmap-edges')`
+* **Todo:** `ydoc.getMap('todo-data')`, `ydoc.getArray('todo-order')`
+* **Whiteboard:** `ydoc.getArray('whiteboard-elements')`
+* **Poll:** `ydoc.getMap('poll-data')`
+* **Wiki:** `ydoc.getMap('wiki-pages')`
 
-Beispielhafte Architektur (grob):
-
-* `useRelay()`-Rune/Store: WebSocket-Verbindung zu Relays
-* `useDocument(docId)`:
-
-  * lädt initialen Zustand (z. B. letzten Snapshot)
-  * abonniert alle Events zu `docId`
-  * wendet sie als Patches/CRDT-Updates an
-  * liefert `doc`, `applyChange(change)` zurück
-* `MarkdownEditor.svelte`:
-
-  * zeigt Editor
-  * onChange → `applyChange` aufrufen → erzeugt Nostr-Event
+### C) Transport (Nostr Provider)
+Zwei spezialisierte Provider kümmern sich um die Synchronisation:
+1.  **`NostrYDocProvider` (Kind 9337):** Synchronisiert Yjs-Updates (binär, Base64).
+2.  **`NostrAwarenessProvider` (Kind 31339):** Synchronisiert Presence-Informationen (Cursor, Online-Status).
 
 ---
 
-## 3. Datenmodell: Wie speicherst du den Text?
+## 3. Multi-App Strategie
 
-Da gibt es mehrere Strategien:
+Damit mehrere Apps koexistieren können, ohne sich gegenseitig zu stören, gelten folgende Prinzipien:
 
-### A) Simple, aber fehleranfällig: „Last write wins“
+### 3.1 App-Isolation durch Präfixe
+Jedes Dokument erhält eine ID. Um Kollisionen zu vermeiden (z.B. User öffnet "demo" im Editor und "demo" im Whiteboard), wird die `documentId` intern mit einem App-Präfix versehen:
+*   `editor:demo`
+*   `mindmap:demo`
+*   `whiteboard:demo`
 
-* Jeder Keypress/Blockchange → schickst du als kompletten Inhalt oder diff.
-* Alle Clients nehmen einfach das Event mit dem neuesten Timestamp.
-* Funktioniert für **einfachen Use Case**, ist aber bei vielen gleichzeitigen Edits unsauber (Race Conditions, „Text springt“).
+Dies verhindert "Cross-Contamination", bei der Updates oder Cursor aus einer App in einer anderen erscheinen.
 
-Eher nur für Prototypen.
-
----
-
-### B) Besser: CRDT über Nostr
-
-Sauber wird es mit einem **CRDT** (Conflict-free Replicated Data Type), z. B.:
-
-* Yjs
-* Automerge
-
-Wie passt das mit Nostr zusammen?
-
-* CRDT-Bibliothek läuft **vollständig im Client**.
-* Änderungen (CRDT-Updates) werden als **Binär- oder Base64-Blob** in Nostr-Events veröffentlicht.
-* Alle Clients:
-
-  * abonnieren dieselben Events
-  * füttern die Updates in dieselbe CRDT-Instanz
-    → Zustand bleibt bei allen identisch, auch bei Latenzen.
-
-Typisches Pattern:
-
-* Nostr-kind (z. B. 30000, 30023, custom kind) für „Dokument-Stream“
-* Tags z. B. `["d", "<docId>"]` zur Identifikation des Dokuments
-* Feld `content`: Base64-kodiertes CRDT-Update
-* Optional alle x Sekunden / Änderungen: Snapshot-Event (damit neue Clients nicht 10.000 Events durchrattern müssen)
+### 3.2 Authentifizierung & Modi
+Die Plattform unterstützt drei Nutzungs-Modi:
+1.  **Local Mode:** Offline, Daten nur im Browser (IndexedDB).
+2.  **Nostr Mode:** Persönliche Identität via NIP-07 Browser Extension (z.B. Alby).
+3.  **Group Mode:** Gemeinsamer Zugriff via Shared Key (aus einem Gruppen-Code generiert), ideal für Lerngruppen/Schulen.
 
 ---
 
-## 4. Presence / Cursors / „Wer tippt gerade?“
+## 4. Features & UX
 
-Dafür kannst du eigene Event-Typen nutzen:
-
-* Leichte „ephemere“ Events (ggf. Non-standard-kind), z. B.:
-
-  * `kind: 30xxx` für Cursor-Position und Auswahl
-* Inhalt: z. B. JSON mit:
-
-  * `docId`
-  * `cursorStart`, `cursorEnd`
-  * `userColor`, `userName`
-
-Die Svelte5-App:
-
-* subscribed auf diese Events
-* mappt sie auf einen `presence`-Store
-* zeigt Cursors/Highlights im Editor an.
+*   **Echtzeit-Kollaboration:** Änderungen werden sofort bei allen Teilnehmern sichtbar.
+*   **Presence:** Man sieht, wer gerade online ist und wo (Cursor/Avatar).
+*   **Offline-First:** Dank `y-indexeddb` kann auch ohne Internet weitergearbeitet werden. Sync erfolgt bei Wiederverbindung.
+*   **Performance:** Update-Batching verhindert Relay-Spam bei schnellen Änderungen.
 
 ---
 
-## 5. Markdown WYSIWYG konkret
+## 5. Herausforderungen & Lösungen
 
-Du könntest z. B. so vorgehen:
-
-1. **Editor wählen**:
-
-   * Rich-Text-Editor mit Markdown-Unterstützung (TipTap, ProseMirror, Milkdown)
-   * oder Markdown-Textarea + Preview (einfacher)
-
-2. **Integrationsstrategie**:
-
-   * Editor sorgt für Text / Document-JSON
-   * CRDT läuft auf einer „Modellschicht“ darunter (z. B. Text als CRDT-String oder ProseMirror-JSON als CRDT-Dokument)
-   * Änderungen vom Editor → in CRDT patchen → Update-Event über Nostr
-   * Eingehende CRDT-Updates → Editor-Dokument aktualisieren
-
-3. **Svelte5-Rune/Store**:
-
-   * `const [doc, setDoc] = useStore(initialDoc)`
-   * `const [connection] = useRelay(relays)`
-   * `connection.onEvent(update => crdt.apply(update); setDoc(crdt.toText()))`
+*   **Latenz & Konflikte:** Yjs (CRDT) löst Konflikte mathematisch korrekt auf, egal in welcher Reihenfolge Updates eintreffen.
+*   **Netzwerk-Last:** Updates werden gebündelt (Batched) und effizient kodiert.
+*   **Browser-Kompatibilität:** Eigene `NativeRelay`-Implementierung sorgt für stabile WebSocket-Verbindungen.
+*   **Ghost Users:** Intelligente "Ghost Killer"-Logik entfernt verwaiste Sessions (z.B. nach Tab-Close).
 
 ---
 
-## 6. Herausforderungen (ehrliche Ecke)
-
-* **Latenz & Reihenfolge:** Nostr garantiert dir keine perfekte Event-Reihenfolge → CRDT ist quasi Pflicht, wenn’s wirklich „Google Docs-mäßig“ sein soll.
-* **Performance:** Viele kleine Events können Relays & Clients stressen → Batching & Snapshots einplanen.
-* **Auth/Zugriff:** Nostr ist grundsätzlich offen. Wenn du private Doks willst:
-
-  * verschlüsselte Inhalte (NIP-04 / NIP-44)
-  * oder eigenen Relay mit Auth-Regeln.
-* **Editor-Integration:** ProseMirror/TipTap & CRDT sauber zu verheiraten ist nicht trivial, aber machbar.
-
----
+Dieses Konzept ermöglicht eine skalierbare Suite von Kollaborations-Tools, die alle auf derselben robusten Basis aufbauen.

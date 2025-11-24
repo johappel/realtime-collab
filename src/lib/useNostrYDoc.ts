@@ -86,6 +86,7 @@ export function useNostrYDoc(
     signAndPublish,
     debug,
     relays,
+    isGroupMode,
   });
 
   const awarenessProvider = new NostrAwarenessProvider({
