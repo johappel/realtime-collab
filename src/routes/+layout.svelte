@@ -7,6 +7,8 @@
 
 	let { children } = $props();
 
+	let isEmbed = $derived($page.url.searchParams.has('embed'));
+
 	onMount(() => {
 		theme.init();
 	});
@@ -17,8 +19,9 @@
 </svelte:head>
 
 <div class="h-screen flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
-	<header class="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
-		<div class="flex items-center gap-6">
+	{#if !isEmbed}
+		<header class="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
+			<div class="flex items-center gap-6">
 			<a href="/" class="font-bold text-lg tracking-tight">Nostr Collab</a>
 			
 			<nav class="flex gap-4 text-sm font-medium">
@@ -45,6 +48,7 @@
 			{/if}
 		</button>
 	</header>
+	{/if}
 
 	<main class="flex-1 flex flex-col relative overflow-hidden">
 		{@render children()}
